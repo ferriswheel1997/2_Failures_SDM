@@ -1,0 +1,1570 @@
+"""
+Created on Wed Oct  4 14:01:18 2023
+
+@author: Zlab
+"""
+
+import networkx as nx
+import math
+import random
+import time
+import copy
+import numpy as np
+# import Demand_matrix as DM
+from gurobipy import *
+import gurobipy as gp
+
+from gurobipy import GRB
+print ("Gurobi Version:",gp.gurobi.version())
+G = nx.Graph()
+#DT17 = [(1,7,306),(1,8,298),(1,11,174),(2,7,114),(2,8,120),(2,14,144),(3,5,37),(3,8,208),(3,10,88),(3,14,278),(4,5,36),(4,10,41),(6,8,316),(6,10,182),(6,11,353),(6,12,85),(6,15,224),(7,8,157),(8,11,258),(9,12,64),(9,16,74),(11,15,275),(13,15,179),(13,17,143),(15,16,187),(16,17,86)]
+#NSF = [(1,2,2100),(1,3,3000),(1,8,4800),(2,3,1200),(2,4,1500),(3,6,3600),(4,5,1200),(4,11,3900),(5,6,2400),(5,7,1200),(6,10,2100),(6,14,3600),(7,8,1500),(7,10,2700),(8,9,1500),(9,10,1500),(9,12,600),(9,13,600),(11,12,1200),(11,13,1500),(12,14,600),(13,14,300)]
+#NSF_East = [(1,2,700),(1,14,800),(2,3,600),(2,13,900),(2,14,800),(2,15,300),(3,4,1000),(3,5,700),(3,15,700),(4,5,300),(5,6,800),(6,7,300),(6,16,1000),(7,8,650),(7,17,400),(8,9,1200),(9,10,1100),(9,17,500),(10,11,1200),(11,12,400),(11,17,1500),(12,13,600),(12,16,1300),(13,14,300),(15,16,500),(16,17,500)]
+N6 = [(1,2,390),(1,6,410),(2,6,590),(2,3,750),(3,5,440),(5,6,730),(3,6,900),(3,4,710),(4,5,600)]
+N5 = [(1,2,950),(1,4,1150),(1,5,850),(2,3,750),(2,4,1180),(3,4,800),(3,5,1128),(4,5,780)]
+#G.add_weighted_edges_from(NSF)
+G.add_weighted_edges_from(N5)
+#G = G.to_directed()
+V = list(G.nodes())
+#print(V)
+E = list(G.edges())
+#print(E)
+'''核心数量'''
+C = [0, 1, 2, 3]
+core_num = 4
+# C_adjacent = {(0,1): 1, (0,2): 1, (0,3): 0, (1,2): 1, (1,3): 0, (2,3): 1}
+'''每个核心的FS容量'''
+F_max = 500
+FS_index = [i for i in range(20)]
+#print(FS_index)
+'''请求的到达时间以及持续时间对于指数分布'''
+Arrival_time = 10
+Unit_holding_time = 10
+
+BR_M_OC = 50
+'''请求数量'''
+R_num = 50
+
+'''核心分配'''
+def core_assignment(R_num):
+    Core_list = []
+    a = R_num/core_num
+    for i in range(R_num):
+        if i <= (a - 1):
+            Core_list.append(0)
+        elif (a - 1) < i <= (a*2 - 1):
+            Core_list.append(1)
+        elif (a*2 - 1) < i <= (a*3 - 1):
+            Core_list.append(2)
+        elif (a*3 - 1) < i <= (R_num - 1):
+            Core_list.append(3)
+    random.shuffle(Core_list)
+    t = Core_list
+    return t
+
+C_list = core_assignment(R_num)
+#print(C_list)
+#print(C_list[0])
+#print(len(C_list))    
+'''请求流量矩阵生成'''
+def Initial_traffic_matrix(R_num):
+    C_listin = copy.deepcopy(C_list)
+    R = []
+    time_current = {v: 0 for v in V}
+    r_index = 0
+    flag = 1
+    while flag:
+        for s_r in V:
+            t_r = random.randint(2,11)
+            core_r = C_listin[r_index]
+            time_interval_s_r = np.random.exponential(Arrival_time)
+            time_holding_s_r = np.random.exponential(Unit_holding_time)
+            d_r = s_r
+            while d_r == s_r:
+                d_r = random.choice(V)#d_r和s_r不能重合
+            R.append([s_r, d_r, t_r, time_current[s_r], time_holding_s_r, core_r])
+            
+            time_current[s_r] += time_interval_s_r
+            r_index += 1
+            if r_index == R_num:
+                flag = 0
+                break
+    R = dict(enumerate(R, 1))
+    return R
+
+R = Initial_traffic_matrix(R_num)
+#print(R)
+
+data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+
+with open(data_path + '\\initial_traffic.txt','w') as R_i:
+     R_i.write(str(R))
+        
+data_path = r'C:\Users\ymc66\Desktop\dualZLDATA' 
+                          
+with open(data_path + '\\initial_traffic.txt','r') as R_i:
+     R_initial = eval(R_i.read())
+
+R = R_initial
+#print(R)
+
+
+#def Traffic_matrix(holding_coefficient):
+#    Total_GB = 0
+#    Total_traffic = 0
+##    R = copy.deepcopy(R_initial)
+#    for r in R:
+#        Holding_time = holding_coefficient*R[r][4]
+#        R[r][4] = R[r][3] + Holding_time
+#        Total_GB += Holding_time*R[r][2]
+#        Total_traffic += R[r][2]
+#    R_start = list(sorted(R.keys(), key = lambda r : R[r][3]))#由R中对应的序号组成的数组
+#    R_end = list(sorted(R.keys(), key = lambda r : R[r][4]))
+#    Time_index = 0
+#    r_start_index = 0
+#    r_end_index = 0
+#    R_seq = []
+#    while r_end_index < R_num:
+#        r_end = R_end[r_end_index]
+#        Time_index = R[r_end][4]
+#        try:
+#            r_start = R_start[r_start_index]
+#            if R[r_start][3] < Time_index:
+#                R_seq.append(r_start)
+#                r_start_index += 1
+#            else:
+#                R_seq.append(-int(r_end))
+#                r_end_index += 1
+#        except:
+#            R_seq.append(-int(r_end))
+#            r_end_index += 1
+#    Time_end = R[R_end[-1]][4]
+#    return R, R_seq, Time_end, Total_traffic, Total_GB
+
+'''路径的长度'''
+def Length_path(p):
+    p_length = 0
+    Num_n_p = len(p)
+    for n_index in range(Num_n_p - 1):
+        n1 = p[n_index]
+        n2 = p[n_index + 1]
+        e_length = G[n1][n2]['weight']
+        p_length += e_length
+    return p_length
+
+'''k最短路径'''
+def KSP_SD(k):
+    KSP = {}
+    for s_node in V:
+        for d_node in V:
+            if s_node != d_node:
+                All_P_sd = nx.all_simple_paths(G, s_node, d_node)
+                KSP_sd = sorted(All_P_sd, key = lambda x : (Length_path(x), len(x)))[:k]
+                KSP[s_node, d_node] = KSP_sd
+    return KSP
+
+
+'''路径上的链路'''
+def Links_in_path(p):
+    Num_n_p = len(p)
+    E_in_p = []
+    for n_index in range(Num_n_p - 1):
+        n1 = p[n_index]
+        n2 = p[n_index + 1]
+        e = (n1, n2)
+        E_in_p.append(e)
+    return E_in_p 
+
+'''每条链路每个核心上的频谱容量'''
+def FScapacity_in_link_core(E,C):
+     F = {}
+     for e in E:
+         for c in C:
+             F[e , c] = [1 for fs in range(F_max)]
+     return F
+
+F_S = FScapacity_in_link_core(E,C)
+#print(F_S)  
+ 
+'''工作路径计算'''
+def working_path_culculate(r_index):
+     s_node = R[r_index][0]
+     d_node = R[r_index][1]
+     W_path = KSP_SD(1)[(s_node, d_node)][0]
+     return W_path
+
+W_path = {r:0 for r in range(1, R_num + 1)}  
+for r in range(1, R_num + 1 ):
+     W_path[r] = working_path_culculate(r)
+#print(W_path)
+    
+data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+
+with open(data_path + '\\working_path.txt','w') as W_i:
+     W_i.write(str(W_path))
+        
+data_path = r'C:\Users\ymc66\Desktop\dualZLDATA' 
+                          
+with open(data_path + '\\working_path.txt','r') as W_i:
+     working_path = eval(W_i.read())
+#print(working_path)     
+# '''modulation level'''
+# def Adaptive_modulation(p):  
+#     path_length = Length_path(p)
+#     if path_length <= 561: #DP-16QAM
+#         return 4
+#     elif path_length <= 1200: #DP-8QAM
+#         return 3
+#     elif path_length <= 2501: #DP-QPSK
+#         return 2
+#     elif path_length <= 6300: #DP-BPSK
+#         return 1
+#     else:
+#         return 0 #Out of reachable distance
+
+# def FS_required_per_s(t_r, p):
+#     modulation_level = Adaptive_modulation(p)
+#     OCs = math.ceil(t_r/(BR_M_OC*modulation_level))# number of optical carriers needed by a request/a tranceiver
+#     OCs_per_s = math.ceil(OCs/spa_g) # return the upper bound of interger OCs/spa_g, the number of optical carriers supported by each core
+#     FS_per_s = math.ceil((OCs_per_s*OC_Bandwidth + Guardband)/FS_Bandwidth) # the number of FS supported by each core
+#     return OCs_per_s, modulation_level, FS_per_s
+
+'''保护路径集合计算'''
+def protection_paths_calculate(r_index):
+     s_node = R[r_index][0]
+     d_node = R[r_index][1]
+     working_path_r = working_path[r_index]
+     W_path_link = Links_in_path(working_path_r)
+     All_P_sd = nx.all_simple_paths(G, s_node, d_node)
+     All_path = sorted(All_P_sd, key = lambda x : (Length_path(x), len(x)))
+     set_Wlink = set(W_path_link)
+     P_path = []
+     num = 0 
+     for i in All_path:
+         i_path_link = Links_in_path(i)
+         set_i = set(i_path_link)
+         set_intersection = set_i & set_Wlink
+         if not set_intersection:
+             P_path.append(i)
+             num += 1
+#             if num >= 3:
+#                 break
+     return P_path, num
+
+P_path = {r: 0 for r in range(1, R_num + 1)}
+P_path_num = {r: 0 for r in range(1, R_num + 1)}
+for r in range(1, R_num + 1):
+     path, num = protection_paths_calculate(r)
+     P_path[r] = path
+     P_path_num[r] = num
+#print(Links_in_path(P_path[1][1]))
+
+data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+
+with open(data_path + '\\Protection_path.txt','w') as P_i:
+         P_i.write(str(P_path))
+with open(data_path + '\\Protection_path_num.txt','w') as P_i_n:
+         P_i_n.write(str(P_path_num))                          
+with open(data_path + '\\Protection_path.txt','r') as P_i:
+    protection_paths = eval(P_i.read())
+with open(data_path + '\\Protection_path_num.txt','r') as P_i_n:
+    protection_paths_num = eval(P_i_n.read())
+#    print(protection_paths)
+#    print(protection_paths_num)
+
+'''保护路径对应index'''
+def protectionpath_index(R_num):
+    R_index = [i for i in range(1, R_num + 1)]
+    P_index = {r:0 for r in R_index}
+    for r in R_index:
+        l = []
+        num = protection_paths_num[r]
+        for i in range(num):
+            l.append(i)
+        P_index[r] = l
+    return P_index
+
+P_path_index = protectionpath_index(R_num) 
+   
+#print(P_path_index)
+
+'''保护路径对应核心'''
+def protectionpath_core(R_num):
+#     a = R_num * 3
+     a=0
+     for r in P_path:
+         a += len(P_path[r])
+         
+     C_list = core_assignment(a)
+     
+#     listnum=len(C_list)
+#     print(listnum)
+#     P_num = 0
+#     for i in range(1, (R_num + 1)):
+#         num = protection_paths_num[i]
+#         P_num += num
+#     b = a - P_num
+#     pop_list = []
+#     if b != 0:
+#         for j in range(b):
+#             a = random.randint(0, R_num - 1)
+#             pop_list.append(a)
+#         for k in pop_list:
+#             C_list.pop(k)
+#     listnum=len(C_list)
+#     print(b)
+#     print(len(C_list))+
+     R_index = [i for i in range(1, R_num + 1)]
+     P_index = protectionpath_index(R_num)
+     Core_protection_r = {(r,p): 0 for r in R_index for p in P_index[r]}  
+     m = 0
+     for r in R_index:
+         for p in P_index[r]:
+             Core_protection_r[(r,p)] = C_list[m]
+             m += 1 
+     return Core_protection_r
+
+A = protectionpath_core(R_num) 
+ 
+data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+
+with open(data_path + '\\P_core.txt','w') as A_i:
+         A_i.write(str(A)) 
+                          
+with open(data_path + '\\P_core.txt','r') as A_i:
+    Protectionpath_core = eval(A_i.read())
+#print(Protectionpath_core)
+
+'''第a条保护路径链路计算'''
+def protectionpath_blink(r, a):
+    P_paths = protection_paths[r]
+    P_p_path = P_paths[a]
+    P_path_link = Links_in_path(P_p_path)
+    return P_path_link
+
+#print(protectionpath_blink(1, 2))
+
+'''两条路径是否相交于同一条link'''
+def intersect_p(p_1,p_2):
+    k=0
+    set_p_1 = set(p_1)
+    set_p_2 = set(p_2)
+    set_intersection = set_p_1 & set_p_2
+    if set_intersection:
+         k=1
+    return k
+
+'''每条工作路径对应的保护路径index组合（第一保护路径和第二保护路径的集合）'''#第一备用链路和第二备用链路的序号组合
+def protectionpath_combi(R_num):
+    #P_path_index 各个request的保护路径编号字典
+    R_index = [i for i in range(1,R_num + 1)]
+    P_protection_combi = {r:0 for r in R_index}
+    
+    for r in R_index:
+        l = []
+        for first_p_index in range(len(P_path_index[r])):
+            for second_p_index in range(len(P_path_index[r])):
+                k=intersect_p(protectionpath_blink(r, first_p_index),protectionpath_blink(r, second_p_index))
+                if first_p_index == second_p_index:
+                    pass
+                elif k:
+                    pass
+                else: 
+                    l.append([first_p_index,second_p_index])
+        if l==[]:
+            l.append([0,1])#如果两个节点之间没有不相交的备用链路，直接选用序号0和序号1备用
+        P_protection_combi[r] = l          
+    return P_protection_combi
+P_index_combi = protectionpath_combi(R_num)
+
+
+
+            
+'''每条工作路径对应的第一保护路径index集合'''#去重
+def protectionpath_1(R_num):
+    R_index = [i for i in range(1,R_num + 1)]
+    P_path_1= {r:0 for r in R_index}
+    for r in R_index:
+        l=[]
+        for protection_combi_index in range(len(P_index_combi[r])):
+            l.append(P_index_combi[r][protection_combi_index][0])
+        l = list(set(l))#列表去重
+        P_path_1[r] = l
+    return P_path_1
+P_1_index = protectionpath_1(R_num)
+#print(P_1_index)
+
+#'''每条工作路径对应的第二保护路径index集合'''#去重
+#def protectionpath_2(R_num):
+#    R_index = [i for i in range(1,R_num + 1)]
+#    P_path_2= {r:0 for r in R_index}
+#    for r in R_index:
+#        l=[]
+#        for protection_combi_index in range(len(P_index_combi[r])):
+#            l.append(P_index_combi[r][protection_combi_index][1])
+#        l = list(set(l))#列表去重
+#        P_path_2[r] = l
+#    return P_path_2
+#P_2_index = protectionpath_2(R_num)
+#print(P_2_index)       
+
+'''判断工作路径是否经过link i'''
+def link_in_workingpath(r, i):
+    working_path_r = working_path[r]
+    link_in_path_r = Links_in_path(working_path_r)
+    if i in link_in_path_r:
+        n = 1
+    else:
+        n = 0
+    return n
+#print(link_in_workingpath(30,(3,2)))
+'''判断保护路径是否经过link j以及核心 l'''
+def link_in_protectionpath(r, j, a, l):
+    s = 0
+    protection_paths_r = protection_paths[r]#request r的保护路径集合
+    protection_bpath_r = protection_paths_r[a]#request r的第a条保护路径
+    core_r = Protectionpath_core[(r,a)]
+    link_in_path_r = Links_in_path(protection_bpath_r)
+    if j in link_in_path_r:#保护路径经过linkj，则s变量等于1，
+        s = 1        
+    if s == 1 and l == core_r:#保护路径经过linkj，和核心l，则n=1
+        n = 1
+    else:
+        n = 0
+    return n
+
+'''判断一条工作链路和另一条工作链路的保护链路是否共享链路和核心'''
+def W_r_P_t_b_share_link_core(r, t, b):
+    q = 0
+    working_path_r = working_path[r]
+    protection_paths_t = protection_paths[t]
+    protection_bpath_t = protection_paths_t[b]
+    W_r_link = Links_in_path(working_path_r)
+    P_t_link = Links_in_path(protection_bpath_t)
+    set_r = set(W_r_link)
+    set_t = set(P_t_link)
+    set_intersection_rt = set_r & set_t
+    if set_intersection_rt:
+        q = 1
+    core_W_r = R[r][5]
+    core_P_t = Protectionpath_core[(t,b)]
+    if q == 1 and (core_W_r == core_P_t):
+        y = 1
+        # WP_PP_sharing = list(set_intersection_rt)
+    else:
+        y = 0
+        # WP_PP_sharing = None
+    return y
+    # R, R_seq, Time_end, Total_traffic, Total_GB = Traffic_matrix(10)
+#print(W_r_P_t_b_share_link_core(8,2,3))
+'''判断一条工作链路的保护路径和另一条工作链路的保护链路是否共享链路和核心'''
+def P_r_n_P_t_m_share_link_core(r,t,n,m):
+    q = 0
+    protection_paths_r = protection_paths[r]
+    protection_paths_t = protection_paths[t]
+    protection_bpath_r = protection_paths_r[n]
+    protection_bpath_t = protection_paths_t[m]
+    P_r_link = Links_in_path(protection_bpath_r)
+    P_t_link = Links_in_path(protection_bpath_t)
+    set_r = set(P_r_link)
+    set_t = set(P_t_link)
+    set_intersection_rt = set_r & set_t
+    if set_intersection_rt:
+        q = 1
+    
+    core_P_r = Protectionpath_core[(r,n)]
+    core_P_t = Protectionpath_core[(t,m)]
+    if q == 1 and (core_P_r == core_P_t):
+        y = 1
+        # WP_PP_sharing = list(set_intersection_rt)
+    else:
+        y = 0
+        # WP_PP_sharing = None
+    return y
+#test = []
+#k = []
+#for n in range (protection_paths_num[7]):
+#    for m in range (protection_paths_num[11]):
+#        k.append(P_r_n_P_t_m_share_link_core(7,11,n,m))
+#        test.append(k)
+#print(test)
+                
+'''判断两条工作路径是否共享链路和核心'''#W-W
+def workingpath_share_link_core(r, t):
+    h = 0
+    working_path_r = working_path[r]
+    working_path_t = working_path[t]
+    W_r_link = Links_in_path(working_path_r)
+    W_t_link = Links_in_path(working_path_t)
+    set_r = set(W_r_link)
+    set_t = set(W_t_link)
+    set_intersection_rt = set_r & set_t
+    if set_intersection_rt:
+        h = 1
+    core_r = R[r][5]
+    core_t = R[t][5]
+    if h == 1 and (core_r == core_t):
+        e = 1
+        # WP_sharing = list(set_intersection_rt)
+    else:
+        e = 0
+        # WP_sharing = None
+    return e
+    
+'''工作链路和另一条备用链路pairwise-joint只在link上(joint的时候返回值等于1）'''
+def pairwise_joint(r,t,n,m):
+    k=0
+    working_path_r = working_path[r]
+    working_path_t = working_path[t]
+    W_r_link = Links_in_path(working_path_r)
+    W_t_link = Links_in_path(working_path_t)
+    protection_paths_r = protection_paths[r]
+    protection_paths_t = protection_paths[t]
+    protection_bpath_r = protection_paths_r[n]
+    protection_bpath_t = protection_paths_t[m]
+    P_r_link = Links_in_path(protection_bpath_r)
+    P_t_link = Links_in_path(protection_bpath_t)
+    set_w_r = set(W_r_link)
+    set_w_t = set(W_t_link)
+    set_p_r = set(P_r_link)
+    set_p_t = set(P_t_link)
+    set_intersection_w_r_w_t = set_w_r & set_w_t
+    set_intersection_p_r_p_t = set_p_r & set_p_t
+    set_intersection_w_r_p_t = set_w_r & set_p_t
+    set_intersection_p_r_w_t = set_p_r & set_w_t
+    if set_intersection_w_r_w_t and set_intersection_p_r_p_t:
+        k=1
+    elif set_intersection_w_r_p_t and set_intersection_p_r_w_t:
+        k=1
+    return k
+
+'''工作链路是否受到link i，link j损坏的影响'''
+def damage_i_j_w(i,j,r):
+    g_1=0
+    g_2=0
+    g=0
+    working_path_r = working_path[r]
+    W_r_link = Links_in_path(working_path_r)#由结点对构成的列表
+    for l in W_r_link:
+        if l == i:
+            g_1=1
+        if l == j:
+            g_2=1
+    g = g_1 + g_2 - g_1 * g_2
+    return g 
+#print(damage_i_j_w((2,6),(4,5),1))
+'''保护链路是否受到link i，link j损坏的影响'''
+def damage_i_j_p(i,j,t,p):
+    g_1=0
+    g_2=0
+    g=0
+    protection_paths_t = protection_paths[t]
+    protection_bpath_t = protection_paths_t[p]
+    P_p_link = Links_in_path(protection_bpath_t)
+    for l in P_p_link:
+        if l == i:
+            g_1=1
+        if l == j:
+            g_2=1
+    g = g_1 + g_2 - g_1 * g_2
+    return g    
+#print(damage_i_j_p((6,3),(2,1),1,0))
+# c = W_r_P_t_b_share_link_core(1, 2, 0)
+# print(c)
+
+'''ILP_Model_DPP'''    
+def Ilp_Model_DPP(hc, Time_Limit_Ilp_Model):
+    
+    model_Ilp_Model = gp.Model('ILP_Model_DPP')#模型名称
+
+
+    '''Variables'''
+    
+    '''starting FS index in working path of node pair r'''#1
+    S_w = {}
+    for r in Request_index:
+        S_w[r] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+#    '''starting FS index in protection path b of node pair r'''
+#    S_p = {}
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            S_p[r, a] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+    '''node pair t的第一保护路径以及第二保护路径上被分配的 starting FS index'''#2,3 重复赋值
+    S_p_1_2 = {}
+    for t in Request_index:
+        for p in P_index_combi[t]:
+#            S_p_1_2[t,p[0],p[1]][0] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+#            S_p_1_2[t,p[0],p[1]][1] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+            S_p_1_2[t, p[0], p[1]] = [model_Ilp_Model.addVar(vtype=GRB.INTEGER), model_Ilp_Model.addVar(vtype=GRB.INTEGER)]
+        
+#    '''protection path is chosen for node pair r'''
+#    X = {}
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            X[r, a] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    '''为node pair t选取第一备用链路和第二备用链路对'''#4，5
+    X = {}
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            X[t, p[0], p[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+            
+    '''total number of reserved FS on each core of link'''#6
+    T = {}
+    for j in E:
+        for l in C:
+            T[j, l] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+    
+    '''working path FS index comparison'''#7
+    Q_w = {}
+    for r_1 in Request_index:
+        for r_2 in Request_index:
+            if r_1 != r_2:
+                Q_w[r_1,r_2] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+#    '''working path protection path FS index comparison'''
+#    H = {}
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for b in P_path_index[t]:
+#                    H[r,t,b] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    '''工作链路和其他第一备用链路/第二备用链路FS index 比较'''#8,9
+    H_1 = {}
+    H_2 = {}
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for a in P_1_index[t]:
+                    H_1[r,t,a] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                for b in P_index_combi[t]:
+                    H_2[r,t,b[0],b[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+#    '''protection path FS index comparison'''
+#    Q_p = {}
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for a in P_path_index[r]:
+#                    for b in P_path_index[t]:
+#                        Q_p[r, a, t, b] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                        
+    '''第一备用链路和其他第一备用链路/第二备用链路FS index 比较'''#10，11
+    Q_11 = {}
+    Q_12 = {}
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for a_1 in P_1_index[t_1]:
+                    for a_2 in P_1_index[t_2]:
+                        Q_11[t_1, a_1, t_2, a_2] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                    for b_2 in P_index_combi[t_2]:
+                        Q_12[t_1, a_1, t_2, b_2[0], b_2[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    
+    '''第二备用链路和其他第二备用链路FS index 比较'''#12
+    Q_22 = {}
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for b_1 in P_index_combi[t_1]:
+                    for b_2 in P_index_combi[t_2]:
+                        Q_22[t_1, b_1[0], b_1[1], t_2, b_2[0], b_2[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                                                
+    T_sum = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+
+    '''maximum FS index used'''
+    c = model_Ilp_Model.addVar(vtype = GRB.INTEGER)#13
+    
+    '''Objective'''
+    #T_sum == quicksum(T[j, l] for j in E for l in C)
+    model_Ilp_Model.setObjective(T_sum+alpha*c, GRB.MINIMIZE)
+    #model_Ilp_Model.addConstr(T_sum == quicksum(T[j, l] for j in E for l in C))
+    '''constraints'''
+    
+    model_Ilp_Model.addConstr(T_sum == gp.quicksum(T[j, l] for j in E for l in C))#网络中为备用路径预留的容量总和
+    model_Ilp_Model.addConstr(c <= F_max) 
+    for r in Request_index:
+        model_Ilp_Model.addConstr( S_w[r] + R[r][2] <= c)#任意工作路径上的FS index都比网络中最大的FS index要小
+    
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            model_Ilp_Model.addConstr( S_p[r, a] + R[r][2] <= c)#任意备用路径上的FS index都比网络中最大的FS index要小
+    
+    '''任意第一/第二备用路径上的FS index都比网络中最大的FS index要小（2）'''
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] + R[t][2] <= c)
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] + R[t][2] <= c)
+    
+    '''任意工作链路只选用一条第一备用链路和一条第二备用链路（1）'''
+    for t in Request_index:
+        X_sum = gp.quicksum( X[t, p[0], p[1]] for p in P_index_combi[t] )
+        model_Ilp_Model.addConstr( X_sum == 1 )
+        
+    '''备用路径只有被选中才会被分配FS，添加约束'''
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] <= M * X[t, p[0], p[1]])
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] <= M * X[t, p[0], p[1]])
+            
+            
+    '''约束（18）每条link每个核心上预留的spare capacity'''
+    for i in E:
+        for j in E:
+            for k in E:
+                if i != j and i != k and j != k:
+                    for l in C:
+                        T_fssum = gp.quicksum(X[t, p[0], p[1]]*
+                                           link_in_protectionpath(t, k, p[0], l)*R[t][2] +X[t, p[0], p[1]]*
+                                           link_in_protectionpath(t, k, p[1], l)*R[t][2]  for t in Request_index for p in P_index_combi[t] )
+                        model_Ilp_Model.addConstr( T_fssum <= T[k, l])
+    
+    '''约束（3）（4）两条工作链路相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r_1 in Request_index:
+#        for r_2 in Request_index:
+#            if r_1 != r_2:
+#                # print(r)
+#                # print(t)
+#                # print(workingpath_share_link_core(r, t))
+#                model_Ilp_Model.addConstr( S_w[r_1] - S_w[r_2] <= M*(1 - Q_w[r_1,r_2] + 1 - workingpath_share_link_core(r_1, r_2)) - 1 )
+    
+    for r_1 in Request_index:
+        for r_2 in Request_index:
+            if r_1 != r_2:
+                # print(r)
+                # print(t)
+                # print(R[r][2])
+                # print(workingpath_share_link_core(r, t))
+                model_Ilp_Model.addConstr( S_w[r_2] + R[r_2][2] - S_w[r_1] <= M*( Q_w[r_1,r_2] 
+                + 1 - workingpath_share_link_core(r_1, r_2)))#两条工作链路相交，频谱不能重合
+    
+    '''约束（5）（6）（7）工作链路和第一备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for p in P_index_combi[t]:
+#                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] - S_w[r] <= M*(1 - H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) - 1 )
+#    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_w[r] + R[r][2] - S_p_1_2[t,p[0],p[1]][0] <= 
+                                              M*(H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) )
+    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] +R[t][2] - S_w[r] <= 
+                                              M*(1 - H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) )
+                    #工作链路和第一备用链路如果相交，频谱不能重合
+    
+    '''约束（8）（9）（10）工作链路和第二备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for p in P_index_combi[t]:
+#                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] - S_w[r] <= M*(1 - H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) - 1 )
+#    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_w[r] + R[r][2] - S_p_1_2[t,p[0],p[1]][1] <= 
+                                              M*(H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) )
+    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] +R[t][2] - S_w[r] <= 
+                                              M*(1 - H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) )
+                    #工作链路和第一备用链路如果相交，频谱不能重合
+    
+    '''约束（11）（12）两条第一备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][0] - S_p_1_2[t_2,p_2[0],p_2[1]][0] <= M*(1 - Q_11[t_1, p_1[0], t_2, p_2[0]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[0])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_2,p_2[0],p_2[1]][0] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][0] <= 
+                                                  M*( Q_11[t_1, p_1[0], t_2, p_2[0]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] 
+                                                  - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[0])))
+
+    '''约束（13）（14）（15）第一备用链路和另一条第二备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr(S_p_1_2[t_2,p_2[0],p_2[1]][1] - S_p_1_2[t_1,p_1[0],p_1[1]][0]<= M*(1 - Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][0] + R[t_1][2] - S_p_1_2[t_2,p_2[0],p_2[1]][1] <= 
+                                                  M*( Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])))
+    
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr(S_p_1_2[t_2,p_2[0],p_2[1]][1] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][0]<= 
+                                                  M*(1 - Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])) )
+    
+    '''约束（16）（17）第二备用链路和另一条第二备用链路，相交于同一个link，同一个core，它们频谱不重叠(不论另外两条链路的关系如何)'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][1] - S_p_1_2[t_2,p_2[0],p_2[1]][1] <= M*(1 - Q_22[t_1,p_1[0], p_1[1], t_2,p_2[0], p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[1],p_2[1])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_2,p_2[0],p_2[1]][1] + R[t_2][2] - 
+                                                  S_p_1_2[t_1,p_1[0],p_1[1]][1] <= M*( Q_22[t_1,p_1[0], p_1[1], t_2,p_2[0], p_2[1]] + 
+                                                         3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] 
+                                                         - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[1],p_2[1]) ))
+
+    
+    model_Ilp_Model.setParam('TimeLimit', Time_Limit_Ilp_Model)     
+    model_Ilp_Model.optimize() 
+    
+    return c.X, model_Ilp_Model.ObjVal, model_Ilp_Model.Objbound, model_Ilp_Model.RunTime
+
+'''ILP_Model_SBPP'''    
+def Ilp_Model_SBPP(hc, Time_Limit_Ilp_Model):
+    
+    model_Ilp_Model = gp.Model('ILP_Model_SBPP')#模型名称
+
+
+    '''Variables'''
+    
+    '''starting FS index in working path of node pair r'''#1
+    S_w = {}
+    for r in Request_index:
+        S_w[r] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+#    '''starting FS index in protection path b of node pair r'''
+#    S_p = {}
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            S_p[r, a] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+    '''node pair t的第一保护路径以及第二保护路径上被分配的 starting FS index'''#2,3 重复赋值
+    S_p_1_2 = {}
+    for t in Request_index:
+        for p in P_index_combi[t]:
+#            S_p_1_2[t,p[0],p[1]][0] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+#            S_p_1_2[t,p[0],p[1]][1] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+            S_p_1_2[t, p[0], p[1]] = [model_Ilp_Model.addVar(vtype=GRB.INTEGER), model_Ilp_Model.addVar(vtype=GRB.INTEGER)]
+        
+#    '''protection path is chosen for node pair r'''
+#    X = {}
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            X[r, a] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    '''为node pair t选取第一备用链路和第二备用链路对'''#4，5
+    X = {}
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            X[t, p[0], p[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+            
+    '''total number of reserved FS on each core of link'''#6
+    T = {}
+    for j in E:
+        for l in C:
+            T[j, l] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+    
+    '''working path FS index comparison'''#7
+    Q_w = {}
+    for r_1 in Request_index:
+        for r_2 in Request_index:
+            if r_1 != r_2:
+                Q_w[r_1,r_2] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+#    '''working path protection path FS index comparison'''
+#    H = {}
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for b in P_path_index[t]:
+#                    H[r,t,b] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    '''工作链路和其他第一备用链路/第二备用链路FS index 比较'''#8,9
+    H_1 = {}
+    H_2 = {}
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for a in P_1_index[t]:
+                    H_1[r,t,a] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                for b in P_index_combi[t]:
+                    H_2[r,t,b[0],b[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+#    '''protection path FS index comparison'''
+#    Q_p = {}
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for a in P_path_index[r]:
+#                    for b in P_path_index[t]:
+#                        Q_p[r, a, t, b] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                        
+    '''第一备用链路和其他第一备用链路/第二备用链路FS index 比较'''#10，11
+    Q_11 = {}
+    Q_12 = {}
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for a_1 in P_1_index[t_1]:
+                    for a_2 in P_1_index[t_2]:
+                        Q_11[t_1, a_1, t_2, a_2] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                    for b_2 in P_index_combi[t_2]:
+                        Q_12[t_1, a_1, t_2, b_2[0], b_2[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    
+    '''第二备用链路和其他第二备用链路FS index 比较'''#12
+    Q_22 = {}
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for b_1 in P_index_combi[t_1]:
+                    for b_2 in P_index_combi[t_2]:
+                        Q_22[t_1, b_1[0], b_1[1], t_2, b_2[0], b_2[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                                                
+    T_sum = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+
+    '''maximum FS index used'''
+    c = model_Ilp_Model.addVar(vtype = GRB.INTEGER)#13
+    
+    '''Objective'''
+    #T_sum == quicksum(T[j, l] for j in E for l in C)
+    model_Ilp_Model.setObjective(T_sum+alpha*c, GRB.MINIMIZE)
+    #model_Ilp_Model.addConstr(T_sum == quicksum(T[j, l] for j in E for l in C))
+    '''constraints'''
+    
+    model_Ilp_Model.addConstr(T_sum == gp.quicksum(T[j, l] for j in E for l in C))#网络中为备用路径预留的容量总和
+    model_Ilp_Model.addConstr(c <= F_max) 
+    for r in Request_index:
+        model_Ilp_Model.addConstr( S_w[r] + R[r][2] <= c)#任意工作路径上的FS index都比网络中最大的FS index要小
+    
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            model_Ilp_Model.addConstr( S_p[r, a] + R[r][2] <= c)#任意备用路径上的FS index都比网络中最大的FS index要小
+    
+    '''任意第一/第二备用路径上的FS index都比网络中最大的FS index要小（2）'''
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] + R[t][2] <= c)
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] + R[t][2] <= c)
+    
+    '''任意工作链路只选用一条第一备用链路和一条第二备用链路（1）'''
+    for t in Request_index:
+        X_sum = gp.quicksum( X[t, p[0], p[1]] for p in P_index_combi[t] )
+        model_Ilp_Model.addConstr( X_sum == 1 )
+        
+    '''备用路径只有被选中才会被分配FS，添加约束'''
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] <= M * X[t, p[0], p[1]])
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] <= M * X[t, p[0], p[1]])
+            
+            
+    '''约束（18）每条link每个核心上预留的spare capacity'''
+    for i in E:
+        for j in E:
+            for k in E:
+                if i != j and i != k and j != k:
+                    for l in C:
+                        T_fssum = gp.quicksum(X[t, p[0], p[1]]*
+                                           link_in_protectionpath(t, k, p[0], l)*R[t][2] + damage_i_j_w(i,j,t)*
+                                           damage_i_j_p(i,j,t,p[0])*(1-damage_i_j_p(i,j,t,p[1])) *X[t, p[0], p[1]]*
+                                           link_in_protectionpath(t, k, p[1], l)*R[t][2]  for t in Request_index for p in P_index_combi[t] )
+                        model_Ilp_Model.addConstr( T_fssum <= T[k, l])
+    
+    '''约束（3）（4）两条工作链路相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r_1 in Request_index:
+#        for r_2 in Request_index:
+#            if r_1 != r_2:
+#                # print(r)
+#                # print(t)
+#                # print(workingpath_share_link_core(r, t))
+#                model_Ilp_Model.addConstr( S_w[r_1] - S_w[r_2] <= M*(1 - Q_w[r_1,r_2] + 1 - workingpath_share_link_core(r_1, r_2)) - 1 )
+    
+    for r_1 in Request_index:
+        for r_2 in Request_index:
+            if r_1 != r_2:
+                # print(r)
+                # print(t)
+                # print(R[r][2])
+                # print(workingpath_share_link_core(r, t))
+                model_Ilp_Model.addConstr( S_w[r_2] + R[r_2][2] - S_w[r_1] <= M*( Q_w[r_1,r_2] 
+                + 1 - workingpath_share_link_core(r_1, r_2)))#两条工作链路相交，频谱不能重合
+    
+    '''约束（5）（6）（7）工作链路和第一备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for p in P_index_combi[t]:
+#                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] - S_w[r] <= M*(1 - H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) - 1 )
+#    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_w[r] + R[r][2] - S_p_1_2[t,p[0],p[1]][0] <= 
+                                              M*(H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) )
+    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] +R[t][2] - S_w[r] <= 
+                                              M*(1 - H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] 
+                                              - W_r_P_t_b_share_link_core(r, t, p[0])) )#工作链路和第一备用链路如果相交，频谱不能重合
+    
+    '''约束（8）（9）（10）工作链路和第二备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for p in P_index_combi[t]:
+#                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] - S_w[r] <= M*(1 - H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) - 1 )
+#    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_w[r] + R[r][2] - S_p_1_2[t,p[0],p[1]][1] <= 
+                                              M*(H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) )
+    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] +R[t][2] - S_w[r] <= 
+                                              M*(1 - H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] 
+                                              - W_r_P_t_b_share_link_core(r, t, p[1])) )#工作链路和第一备用链路如果相交，频谱不能重合
+    
+    '''约束（11）（12）两条第一备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][0] - S_p_1_2[t_2,p_2[0],p_2[1]][0] <= M*(1 - Q_11[t_1, p_1[0], t_2, p_2[0]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[0])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_2,p_2[0],p_2[1]][0] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][0] <= 
+                                                  M*( Q_11[t_1, p_1[0], t_2, p_2[0]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[0])))
+
+    '''约束（13）（14）（15）第一备用链路和另一条第二备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr(S_p_1_2[t_2,p_2[0],p_2[1]][1] - S_p_1_2[t_1,p_1[0],p_1[1]][0]<= M*(1 - Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][0] + R[t_1][2] - S_p_1_2[t_2,p_2[0],p_2[1]][1] <= 
+                                                  M*( Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])))
+    
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr(S_p_1_2[t_2,p_2[0],p_2[1]][1] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][0]<= 
+                                                  M*(1 - Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])) )
+    
+    '''约束（16）（17）第二备用链路和另一条第二备用链路，相交于同一个link，同一个core，它们频谱不能重叠(相对应的另两条链路pair-wise joint)'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][1] - S_p_1_2[t_2,p_2[0],p_2[1]][1] <= M*(1 - Q_22[t_1,p_1[0], p_1[1], t_2,p_2[0], p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[1],p_2[1])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_2,p_2[0],p_2[1]][1] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][1] <= 
+                                                  M*( Q_22[t_1,p_1[0], p_1[1], t_2,p_2[0], p_2[1]] + 4 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[1],p_2[1])
+                                                  -pairwise_joint(t_1,t_2,p_1[0],p_2[0])))
+
+    
+    model_Ilp_Model.setParam('TimeLimit', Time_Limit_Ilp_Model)     
+    model_Ilp_Model.optimize() 
+    
+    return c.X, model_Ilp_Model.ObjVal, model_Ilp_Model.Objbound, model_Ilp_Model.RunTime
+
+'''ILP_Model_SBPP_Cmax'''    
+def Ilp_Model_SBPP_Cmax(hc, Time_Limit_Ilp_Model):
+    
+    model_Ilp_Model = gp.Model('ILP_Model_SBPP_Cmax')#模型名称
+
+
+    '''Variables'''
+    
+    '''starting FS index in working path of node pair r'''#1
+    S_w = {}
+    for r in Request_index:
+        S_w[r] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+#    '''starting FS index in protection path b of node pair r'''
+#    S_p = {}
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            S_p[r, a] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+    '''node pair t的第一保护路径以及第二保护路径上被分配的 starting FS index'''#2,3 重复赋值
+    S_p_1_2 = {}
+    for t in Request_index:
+        for p in P_index_combi[t]:
+#            S_p_1_2[t,p[0],p[1]][0] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+#            S_p_1_2[t,p[0],p[1]][1] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+            S_p_1_2[t, p[0], p[1]] = [model_Ilp_Model.addVar(vtype=GRB.INTEGER), model_Ilp_Model.addVar(vtype=GRB.INTEGER)]
+        
+#    '''protection path is chosen for node pair r'''
+#    X = {}
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            X[r, a] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    '''为node pair t选取第一备用链路和第二备用链路对'''#4，5
+    X = {}
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            X[t, p[0], p[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+            
+    '''total number of reserved FS on each core of link'''#6
+    T = {}
+    for j in E:
+        for l in C:
+            T[j, l] = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+    
+    
+    '''working path FS index comparison'''#7
+    Q_w = {}
+    for r_1 in Request_index:
+        for r_2 in Request_index:
+            if r_1 != r_2:
+                Q_w[r_1,r_2] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+#    '''working path protection path FS index comparison'''
+#    H = {}
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for b in P_path_index[t]:
+#                    H[r,t,b] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    '''工作链路和其他第一备用链路/第二备用链路FS index 比较'''#8,9
+    H_1 = {}
+    H_2 = {}
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for a in P_1_index[t]:
+                    H_1[r,t,a] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                for b in P_index_combi[t]:
+                    H_2[r,t,b[0],b[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+#    '''protection path FS index comparison'''
+#    Q_p = {}
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for a in P_path_index[r]:
+#                    for b in P_path_index[t]:
+#                        Q_p[r, a, t, b] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                        
+    '''第一备用链路和其他第一备用链路/第二备用链路FS index 比较'''#10，11
+    Q_11 = {}
+    Q_12 = {}
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for a_1 in P_1_index[t_1]:
+                    for a_2 in P_1_index[t_2]:
+                        Q_11[t_1, a_1, t_2, a_2] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                    for b_2 in P_index_combi[t_2]:
+                        Q_12[t_1, a_1, t_2, b_2[0], b_2[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+    
+    
+    '''第二备用链路和其他第二备用链路FS index 比较'''#12
+    Q_22 = {}
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for b_1 in P_index_combi[t_1]:
+                    for b_2 in P_index_combi[t_2]:
+                        Q_22[t_1, b_1[0], b_1[1], t_2, b_2[0], b_2[1]] = model_Ilp_Model.addVar(vtype = GRB.BINARY)
+                                                
+    T_sum = model_Ilp_Model.addVar(vtype = GRB.INTEGER)
+
+    '''maximum FS index used'''
+    c = model_Ilp_Model.addVar(vtype = GRB.INTEGER)#13
+    
+    '''Objective'''
+    
+    model_Ilp_Model.setObjective(c+alpha*T_sum, GRB.MINIMIZE)
+    
+    '''constraints'''
+    
+    model_Ilp_Model.addConstr(T_sum == gp.quicksum(T[j, l] for j in E for l in C))#网络中为备用路径预留的容量总和
+    
+    for r in Request_index:
+        model_Ilp_Model.addConstr( S_w[r] + R[r][2] <= c)#任意工作路径上的FS index都比网络中最大的FS index要小
+    
+#    for r in Request_index:
+#        for a in P_path_index[r]:
+#            model_Ilp_Model.addConstr( S_p[r, a] + R[r][2] <= c)#任意备用路径上的FS index都比网络中最大的FS index要小
+    
+    '''任意第一/第二备用路径上的FS index都比网络中最大的FS index要小（2）'''
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] + R[t][2] <= c)
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] + R[t][2] <= c)
+    
+    '''任意工作链路只选用一条第一备用链路和一条第二备用链路（1）'''
+    for t in Request_index:
+        X_sum = gp.quicksum( X[t, p[0], p[1]] for p in P_index_combi[t] )
+        model_Ilp_Model.addConstr( X_sum == 1 )
+        
+    '''备用路径只有被选中才会被分配FS，添加约束'''
+    for t in Request_index:
+        for p in P_index_combi[t]:
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] <= M * X[t, p[0], p[1]])
+            model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] <= M * X[t, p[0], p[1]])
+            
+            
+    '''约束（18）每条link每个核心上预留的spare capacity'''
+    for i in E:
+        for j in E:
+            for k in E:
+                if i != j and i != k and j != k:
+                    for l in C:
+                        T_fssum = gp.quicksum(X[t, p[0], p[1]]*
+                                           link_in_protectionpath(t, k, p[0], l)*R[t][2] + damage_i_j_w(i,j,t)*
+                                           damage_i_j_p(i,j,t,p[0])*(1-damage_i_j_p(i,j,t,p[1])) *X[t, p[0], p[1]]*
+                                           link_in_protectionpath(t, k, p[1], l)*R[t][2]  for t in Request_index for p in P_index_combi[t] )
+                        model_Ilp_Model.addConstr( T_fssum <= T[k, l])
+    
+    '''约束（3）（4）两条工作链路相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r_1 in Request_index:
+#        for r_2 in Request_index:
+#            if r_1 != r_2:
+#                # print(r)
+#                # print(t)
+#                # print(workingpath_share_link_core(r, t))
+#                model_Ilp_Model.addConstr( S_w[r_1] - S_w[r_2] <= M*(1 - Q_w[r_1,r_2] + 1 - workingpath_share_link_core(r_1, r_2)) - 1 )
+    
+    for r_1 in Request_index:
+        for r_2 in Request_index:
+            if r_1 != r_2:
+                # print(r)
+                # print(t)
+                # print(R[r][2])
+                # print(workingpath_share_link_core(r, t))
+                model_Ilp_Model.addConstr( S_w[r_2] + R[r_2][2] - S_w[r_1] <= M*( Q_w[r_1,r_2] 
+                + 1 - workingpath_share_link_core(r_1, r_2)))#两条工作链路相交，频谱不能重合
+    
+    '''约束（5）（6）（7）工作链路和第一备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for p in P_index_combi[t]:
+#                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] - S_w[r] <= M*(1 - H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) - 1 )
+#    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_w[r] + R[r][2] - S_p_1_2[t,p[0],p[1]][0] <= 
+                                              M*(H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[0])) )
+    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][0] +R[t][2] - S_w[r] <= 
+                                              M*(1 - H_1[r,t,p[0]] + 2 - X[t, p[0], p[1]] 
+                                              - W_r_P_t_b_share_link_core(r, t, p[0])) )#工作链路和第一备用链路如果相交，频谱不能重合
+    
+    '''约束（8）（9）（10）工作链路和第二备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for r in Request_index:
+#        for t in Request_index:
+#            if r != t:
+#                for p in P_index_combi[t]:
+#                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] - S_w[r] <= M*(1 - H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) - 1 )
+#    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_w[r] + R[r][2] - S_p_1_2[t,p[0],p[1]][1] <= 
+                                              M*(H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] - W_r_P_t_b_share_link_core(r, t, p[1])) )
+    
+    for r in Request_index:
+        for t in Request_index:
+            if r != t:
+                for p in P_index_combi[t]:
+                    model_Ilp_Model.addConstr( S_p_1_2[t,p[0],p[1]][1] +R[t][2] - S_w[r] <= 
+                                              M*(1 - H_2[r,t,p[0],p[1]] + 2 - X[t, p[0], p[1]] 
+                                              - W_r_P_t_b_share_link_core(r, t, p[1])) )#工作链路和第一备用链路如果相交，频谱不能重合
+    
+    '''约束（11）（12）两条第一备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][0] - S_p_1_2[t_2,p_2[0],p_2[1]][0] <= M*(1 - Q_11[t_1, p_1[0], t_2, p_2[0]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[0])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_2,p_2[0],p_2[1]][0] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][0] <= 
+                                                  M*( Q_11[t_1, p_1[0], t_2, p_2[0]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[0])))
+
+    '''约束（13）（14）（15）第一备用链路和另一条第二备用链路，相交于同一个link，同一个core，它们频谱不重叠'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr(S_p_1_2[t_2,p_2[0],p_2[1]][1] - S_p_1_2[t_1,p_1[0],p_1[1]][0]<= M*(1 - Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][0] + R[t_1][2] - S_p_1_2[t_2,p_2[0],p_2[1]][1] <= 
+                                                  M*( Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])))
+    
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr(S_p_1_2[t_2,p_2[0],p_2[1]][1] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][0]<= 
+                                                  M*(1 - Q_12[t_1, p_1[0], t_2, p_2[0],p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[0],p_2[1])) )
+    
+    '''约束（16）（17）第二备用链路和另一条第二备用链路，相交于同一个link，同一个core，它们频谱不能重叠(相对应的另两条链路pair-wise joint)'''
+#    for t_1 in Request_index:
+#        for t_2 in Request_index:
+#            if t_1 != t_2:
+#                for p_1 in P_index_combi[t_1]:
+#                    for p_2 in P_index_combi[t_2]:
+#                        model_Ilp_Model.addConstr( S_p_1_2[t_1,p_1[0],p_1[1]][1] - S_p_1_2[t_2,p_2[0],p_2[1]][1] <= M*(1 - Q_22[t_1,p_1[0], p_1[1], t_2,p_2[0], p_2[1]] + 3 - X[t_1, p_1[0], p_1[1]] - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[1],p_2[1])) - 1 )
+#                        
+    for t_1 in Request_index:
+        for t_2 in Request_index:
+            if t_1 != t_2:
+                for p_1 in P_index_combi[t_1]:
+                    for p_2 in P_index_combi[t_2]:
+                        model_Ilp_Model.addConstr( S_p_1_2[t_2,p_2[0],p_2[1]][1] + R[t_2][2] - S_p_1_2[t_1,p_1[0],p_1[1]][1] <= 
+                                                  M*( Q_22[t_1,p_1[0], p_1[1], t_2,p_2[0], p_2[1]] + 4 - X[t_1, p_1[0], p_1[1]] 
+                                                  - X[t_2, p_2[0], p_2[1]] - P_r_n_P_t_m_share_link_core(t_1,t_2,p_1[1],p_2[1])
+                                                  -pairwise_joint(t_1,t_2,p_1[0],p_2[0])))
+
+    
+    model_Ilp_Model.setParam('TimeLimit', Time_Limit_Ilp_Model)     
+    model_Ilp_Model.optimize() 
+    
+    return c.X, model_Ilp_Model.ObjVal, model_Ilp_Model.Objbound, model_Ilp_Model.RunTime
+M = 1e5  
+# v = 100                  
+hc_set = [1, 2, 3, 4, 5]
+
+#alpha_set = [0.01,0.02,0.03,0.04,0.05]
+alpha = 0.001
+Request_index = [i for i in range(1, (R_num + 1))] 
+T_ILP_up_DPP = 0 
+T_ILP_low_DPP = 0 
+C_num_DPP = 0
+
+T_ILP_up_SBPP = 0 
+T_ILP_low_SBPP = 0 
+C_num_SBPP = 0
+
+T_ILP_up_SBPP_C = 0 
+T_ILP_low_SBPP_C = 0 
+C_num_SBPP_C = 0
+
+# for i in range(len(R_seq)):
+#     if R_seq[i] > 0:
+#         Request_index.append(R_seq[i])
+    
+# data_path = 'C:\\Users\\ZhengYu\\Desktop\\DATA' 
+#                          
+# with open(data_path + '\\R_n6.txt','r') as R_i:
+#     R_initial = eval(R_i.read())
+
+for hc in hc_set:
+    #for alpha in alpha_set:
+        #for simulation_sound in range(1):
+            '''核心分配'''
+            C_list = core_assignment(R_num)
+            
+            '''请求流量矩阵生成'''
+            R = Initial_traffic_matrix(R_num)
+            #print(R)
+            
+            data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+            
+            with open(data_path + '\\initial_traffic.txt','w') as R_i:
+                 R_i.write(str(R))
+                    
+            data_path = r'C:\Users\ymc66\Desktop\dualZLDATA' 
+                                      
+            with open(data_path + '\\initial_traffic.txt','r') as R_i:
+                 R_initial = eval(R_i.read())
+            
+            R = R_initial
+            
+            '''每条链路每个核心上的频谱容量'''
+            F_S = FScapacity_in_link_core(E,C)
+            
+            '''工作路径计算'''
+            W_path = {r:0 for r in range(1, R_num + 1)} 
+            for r in range(1, R_num + 1 ):
+                W_path[r] = working_path_culculate(r)
+            
+            data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+            
+            with open(data_path + '\\working_path.txt','w') as W_i:
+                 W_i.write(str(W_path))
+                    
+            data_path = r'C:\Users\ymc66\Desktop\dualZLDATA' 
+                                      
+            with open(data_path + '\\working_path.txt','r') as W_i:
+                 working_path = eval(W_i.read())
+            
+            '''保护路径集合计算'''
+            for r in range(1, R_num + 1):
+                 path, num = protection_paths_calculate(r)
+                 P_path[r] = path
+                 P_path_num[r] = num
+            #print(Links_in_path(P_path[1][1]))
+            
+            data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+            
+            with open(data_path + '\\Protection_path.txt','w') as P_i:
+                     P_i.write(str(P_path))
+            with open(data_path + '\\Protection_path_num.txt','w') as P_i_n:
+                     P_i_n.write(str(P_path_num))                          
+            with open(data_path + '\\Protection_path.txt','r') as P_i:
+                protection_paths = eval(P_i.read())
+            with open(data_path + '\\Protection_path_num.txt','r') as P_i_n:
+                protection_paths_num = eval(P_i_n.read())
+            
+            '''保护路径对应index'''
+            P_path_index = protectionpath_index(R_num) 
+            
+            '''保护路径对应核心'''
+            A = protectionpath_core(R_num) 
+ 
+            data_path = r'C:\Users\ymc66\Desktop\dualZLDATA'
+            
+            with open(data_path + '\\P_core.txt','w') as A_i:
+                     A_i.write(str(A)) 
+                                      
+            with open(data_path + '\\P_core.txt','r') as A_i:
+                Protectionpath_core = eval(A_i.read())
+            
+            '''每条工作路径对应的保护路径index组合（第一保护路径和第二保护路径的集合）'''#第一备用链路和第二备用链路的序号组合
+            P_index_combi = protectionpath_combi(R_num)
+            
+            '''每条工作路径对应的第一保护路径index集合'''#去重
+            P_1_index = protectionpath_1(R_num)
+            
+            print(Request_index)
+            c_ILP_DPP, total_cost_up_Ilp_DPP,total_cost_low_Ilp_DPP,runtime_Ilp_DPP = Ilp_Model_DPP(hc, 600)
+            T_ILP_up_DPP += total_cost_up_Ilp_DPP 
+            T_ILP_low_DPP += total_cost_low_Ilp_DPP
+            C_num_DPP += c_ILP_DPP
+            result_ILP_DPP = '  C_num_DPP:  ' + str('%.3f' % c_ILP_DPP)  + '  T_Up_DPP:  ' + str('%.3f' % total_cost_up_Ilp_DPP)  + '    T_Low_DPP:  ' + str('%.3f' % total_cost_low_Ilp_DPP) +  '    Runtime_DPP:  ' + str('%.3f' % runtime_Ilp_DPP)
+            print(result_ILP_DPP)
+            #with open(r'C:\Users\ymc66\Desktop\dualZLDATA' + '\\ILP_results_DPP.txt','w') as ILP_results_DPP:
+                #ILP_results_DPP.write(result_ILP_DPP + '\n')
+            
+            c_ILP_SBPP, total_cost_up_Ilp_SBPP,total_cost_low_Ilp_SBPP,runtime_Ilp_SBPP = Ilp_Model_SBPP(hc, 600)
+            T_ILP_up_SBPP += total_cost_up_Ilp_SBPP 
+            T_ILP_low_SBPP += total_cost_low_Ilp_SBPP
+            C_num_SBPP += c_ILP_SBPP
+            result_ILP_SBPP = '  C_num_SBPP:  ' + str('%.3f' % c_ILP_SBPP)  + '  T_Up_SBPP:  ' + str('%.3f' % total_cost_up_Ilp_SBPP)  + '    T_Low_SBPP:  ' + str('%.3f' % total_cost_low_Ilp_SBPP) +  '    Runtime_SBPP:  ' + str('%.3f' % runtime_Ilp_SBPP)
+            print(result_ILP_SBPP)
+            #with open(r'C:\Users\ymc66\Desktop\dualZLDATA' + '\\ILP_results_SBPP.txt','w') as ILP_results_SBPP:
+                #ILP_results_SBPP.write(result_ILP_SBPP + '\n')
+            
+            c_ILP_SBPP_C, total_cost_up_Ilp_SBPP_C,total_cost_low_Ilp_SBPP_C,runtime_Ilp_SBPP_C = Ilp_Model_SBPP_Cmax(hc, 1200)
+            T_ILP_up_SBPP_C += (total_cost_up_Ilp_SBPP_C - c_ILP_SBPP_C) * 1000
+            T_ILP_low_SBPP_C += (total_cost_up_Ilp_SBPP_C - c_ILP_SBPP_C) * 1000
+            C_num_SBPP_C += c_ILP_SBPP_C
+            result_ILP_SBPP_C = '  C_num_SBPP_C:  ' + str('%.3f' % c_ILP_SBPP_C)  + '  T_Up_SBPP_C:  ' + str('%.3f' % total_cost_up_Ilp_SBPP_C)  + '    T_Low_SBPP_C:  ' + str('%.3f' % total_cost_low_Ilp_SBPP_C) +  '    Runtime_SBPP_C:  ' + str('%.3f' % runtime_Ilp_SBPP_C)
+            print(result_ILP_SBPP_C)
+
+T_ILP_up_DPP = T_ILP_up_DPP/len(hc_set)
+T_ILP_low_DPP = T_ILP_low_DPP/len(hc_set)
+C_num_DPP = C_num_DPP/len(hc_set)
+result_ILP_DPP = '  C_num_DPP:  ' + str('%.3f' % C_num_DPP)  + '  T_Up_DPP:  ' + str('%.3f' % T_ILP_up_DPP)  + '    T_Low_DPP:  ' + str('%.3f' % T_ILP_low_DPP) +  '    Runtime_DPP:  ' + str('%.3f' % runtime_Ilp_DPP)
+print(result_ILP_DPP)
+
+T_ILP_up_SBPP = T_ILP_up_SBPP/len(hc_set)
+T_ILP_low_SBPP = T_ILP_low_SBPP/len(hc_set)
+C_num_SBPP = C_num_SBPP/len(hc_set)
+result_ILP_SBPP = '  C_num_SBPP:  ' + str('%.3f' % C_num_SBPP)  + '  T_Up_SBPP:  ' + str('%.3f' % T_ILP_up_SBPP)  + '    T_Low_SBPP:  ' + str('%.3f' % T_ILP_low_SBPP) +  '    Runtime_SBPP:  ' + str('%.3f' % runtime_Ilp_SBPP)
+print(result_ILP_SBPP)
+
+T_ILP_up_SBPP_C = T_ILP_up_SBPP_C/len(hc_set)
+T_ILP_low_SBPP_C = T_ILP_low_SBPP_C/len(hc_set)
+C_num_SBPP_C = C_num_SBPP_C/len(hc_set)
+result_ILP_SBPP_C = '  C_num_SBPP_C:  ' + str('%.3f' % C_num_SBPP_C)  + '  T_Up_SBPP_C:  ' + str('%.3f' % T_ILP_up_SBPP_C)  + '    T_Low_SBPP_C:  ' + str('%.3f' % T_ILP_low_SBPP_C) +  '    Runtime_SBPP_C:  ' + str('%.3f' % runtime_Ilp_SBPP_C)
+print(result_ILP_SBPP_C)
