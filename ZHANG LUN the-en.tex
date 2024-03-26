@@ -1,0 +1,723 @@
+%%
+% This is a sample document for writing a thesis which will be submitted
+% to the Graduate School of Systems and Information Engineering.  The main
+% purpose of this document is to reduce the author's trouble in making
+% title.  Of course you can create your title page from scratch.  But your
+% style must fulfill the requirements such as margins.
+% 
+%%
+\documentclass[a4paper,11pt]{report}
+
+%%[inserting images of PostScript, JPEG, PNG and so on]
+%% choose and comment-out the following packages
+%\usepackage{graphicx} % for \includegraphics[width=3cm]{sample.eps}
+\usepackage{epsfig} 
+\usepackage{enumerate}
+
+%% You may use dvipdfm for directly creating PDF from DVI.
+%\usepackage[dvipdfm]{color,graphicx}
+%% bookmarking with dvipdfm
+%\usepackage[dvipdfm,bookmarks=true,bookmarksnumbered=true,bookmarkstype=toc]{hyperref}
+
+%\usepackage{times} % use Times Font instead of Computer Modern
+
+\setcounter{tocdepth}{3}
+\setcounter{page}{-1}
+
+\setlength{\oddsidemargin}{0.1in}
+\setlength{\evensidemargin}{0.1in} 
+\setlength{\topmargin}{0in}
+\setlength{\textwidth}{6in} 
+%\setlength{\textheight}{10.1in}
+\setlength{\parskip}{0em}
+\setlength{\topsep}{0em}
+
+%\newcommand{\fig}[1]{{\bf Fig.\ref{#1}}}
+
+%% [IMPORTANT] package for title generation (english version)
+\usepackage{sie-en}
+\usepackage{graphicx}
+\usepackage{url} 
+\usepackage{amsmath}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{indentfirst}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{amsmath,amssymb}
+\usepackage{enumerate}
+\usepackage{url}
+\usepackage{amsfonts}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{diagbox}
+\usepackage{bm}
+
+%% title of thesis
+%% DON'T PUT \\ AT THE END OF THE TITLE. IT CAUSES ERROR!!
+\title{Routing and Spectrum Assignment for Dual Failure Path Protected MCF-SDM Networks}
+%% name of author
+\author{Zhang Lun}
+%% name of advisor
+\advisor{Yongbing Zhang}
+
+%% major and degree and date (chooose one)
+%% [NOTICE] Month varies with majors.
+
+\majorfield{} \degree{Science in Policy and Planning Sciences } \yearandmonth{March 2024}
+
+\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}} 
+\newcommand{\Rmnum}[1]{\uppercase\expandafter{\romannumeral #1}}  %定义命令输入大写罗马数字
+\newcommand{\rmnum}[1]{\romannumeral #1}  %定义命令输入小写罗马数字
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\newpage
+
+\thispagestyle{empty}
+\vspace*{20pt plus 1fil}
+\parindent=2em%\parindent=1zw！！！！！！
+\noindent
+%%
+%% Abstract
+%%
+\begin{center}
+{\bf Abstract}
+\vspace{5mm}
+\end{center}
+   With the development of elastic optical networks, information transmission rates of 10Tbps have become achievable. To meet the continuously growing network traffic and service demands, multi-core fiber space division multiplexing (MCF-SDM) networks are attracting increasing attention as a development trend for future elastic optical networks.In this research, we consider how to utilize fewer spectrum resources in order to recover the network when two links failures happen simultaneously under the background of MCF-SDM networks.Based on the previous research, we propose our Shared Backup Path Protection-2nd Backup Path(SBPP-2B) approach and formulate it as an integer linear programming (ILP) model. We compare our approach with the traditional Dedicated Path Protection(DPP) approach in the total number of reserved frequency slots on the backup paths and the maximum number of FSs occupied(both used and reserved) on each core in the whole network.And we get the conclusion that when the distribution of requests in the network are the same, our proposed SBPP-2B approach can save frequency slots comparing with DPP approach.
+
+\\
+%{\bf ��When you print on double-side,
+%Please print the Abstract page so that it does not appear on the back of the front cover. }
+%%%%%
+%这一段是论文的目录，记得解除注释
+
+\vspace{0pt plus 1fil}
+\newpage
+
+\pagenumbering{roman} % I, II, III, IV%页码设置：小写的罗马数字 
+\tableofcontents%生成目录
+\listoffigures%生成图片目录
+\listoftables
+
+\pagebreak \setcounter{page}{1}
+\pagenumbering{arabic} % 1,2,3
+
+
+
+\chapter{Introduction}
+    With the development of Information and Communication Technology, the demand for bandwidth is continuously increasing.As one of the carriers of information transmission, communication networks are also evolving to accommodate higher transmission data rates.With the maturity of Elastic Optical Network (EON) technology, transmission data rate of 10Tbps has been achieved. In order to meet the growing demand for network service bandwidth, Space Division Multiplexing (SDM) networks \cite{richardson2013} \cite{pj2018} are gaining attention as one of the development directions for future optical networks.\par
+
+    Unlike traditional elastic optical networks, SDM networks include multiple optical cores within each fiber, thereby expanding the  transmission data rate of the network.As network structures become increasingly complex, researches on network reliability also become increasingly critical.The typical method of improving the reliability of the networks is to provision a backup path for each working path.Two typical kinds of network protection approaches in traditional EON are shared backup path protection(SBPP) and dedicated backup path protection(DPP)\cite{wd2003}\cite{an2011}\cite{shen2014}.As the resources being used to transmit data in optical networks, the continuous spectrum resources is divided into frequency slots.When considering the selection of backup path, the total amount of frequency slots occupied(being used or reserved) in the whole network may become one of the important indicators.In traditional shared backup path protection approach,the spectrum resources on joint backup paths can be shared on their common links under particular conditions.However in dedicated backup path protection approach different backup paths must occupy independent spectrum resources(frequency slots).The protection approach under the condition of single failure can not deal with the condition when dual failures happening at the same time in \cite{Hong Guo2016} the authors attempt to improve traditional DPP and SBPP approach to solve the routing and spectrum resources assignment problem with two failures under the condition of single-core EON.\par
+
+    \begin{table}[!h]
+    \caption{Evolution of communication network}
+    \label{t_n6_dpp}
+    \begin{center}
+    \begin{tabular}{cccc}
+    \toprule
+    \tabincell{c}{Year} & \tabincell{c}{Types of networks} & \tabincell{c}{Transmission data rate} \\
+    \midrule
+    1980 - 1995& Electrical Time Division Multiplexing (ETDM) & 0 - 10 Gbps\\
+    1995 - 2012& Optical Time Division Multiplexing (OTDM) & 10 - 100 Gbps\\
+    2012 - 2020& Optical Wavelength Division Multiplexing(OWDM) & 100 - 400 Gbps\\
+    2020 - 2023& Elastic Optical Network (EON) & 400 Gbps - 10 Tbps\\
+    2025 -& Space Division Multiplexing (SDM)& 10 Tbps - 1 Pbps\\
+    \bottomrule 
+    \end{tabular}
+    \end{center}
+    \end{table}
+
+    
+        \begin{figure}[!h]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=backup(single).png, width=12cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{Backup path technology}
+        \label{figure:backup(single)}
+        \end{figure} 
+    
+    
+    In this research we consider the backup path protection approach under the background of multi-core-fibre space division multiplexing(MCF-SDM) networks.The main difference between previous works and this research is we consider the restoration of the network with two link failures happening simultaneously under the condition of multi-core fibres.And that makes the selection rules of backup paths for each working path become more complicated than the condition of single link failure or dual failures happening in single-core EON networks.We proposed our Shared Backup Path Protection-2nd Backup Path(SBPP-2B) approach and formulate it as an integer linear programming \cite{gurobi} model.Our objective is to minimize the spectrum resources(frequency slots) for the ongoing transmission and the corresponding backup paths.Because real-world network operators also aspire to achieve this goal.Then we evaluate the performance of our SBPP-2B approach comparing with the traditional DPP approach by simulation.\par
+
+%\iffalse和\fi是成段注释的语句
+
+
+
+\chapter{Background}
+\section{Space-division multiplexing (SDM) optical networks}
+
+    In traditional optical networks, each request is supported by fixed 50 GHz.However the fixed grid optical network can not support the demands over 100 Gb/s.So in EON, the spectrum resources can be divided into small frequency slots, in order to support the demands with higher data rates.\par
+
+    Just as single-core EON overcomes shortcomings of 50GHz fixed International Telecommunication Union(ITU) Grid and can achieve transmission data rate up to 10Tb/s.MCF-SDM networks \cite{bl2015} \cite{th2011} \cite{js2012}as one of the development directions of EON has attracted widespread attention.With multiple cores to transmit data in one fibre,MCF-SDM network is capable of carrying higher data volumes per second than traditional single-core fibre EON and also has more flexibility.\par
+
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=Fixed Grid and EON.png, width=13cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{50GHz fixed ITU Grid and EON}
+    \label{figure:Fixed Grid and EON}
+    \end{figure}
+    
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=EON and SDM.png, width=13cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{Single-core fiber and space-division multiplexing (SDM) fiber}
+    \label{figure:EON and SDM}
+    \end{figure}
+    
+
+    
+
+\section{Backup path protection technology}
+\subsection{Single failure backup path protection technology in single-core EON networks}
+        \begin{figure}[!h]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=DPP single.png, width=8cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of DPP restoration approach(single link failure)}
+        \label{figure:DPP single}
+        \end{figure}
+
+        \begin{figure}[!h]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=DPP spectrum resources single.png, width=8cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of frequency slots assignment of DPP restoration approach(single link failure)}
+        \label{figure:DPP spectrum resources single}
+        \end{figure}
+
+Failures events in communication networks are commonly caused by natural factors,including hurricanes ,tsunamis,floods,earthquakes,solar flares, or even meteor collisions.As we cannot predict most of disasters in advance,failures can strike the backbone networks at any time, anywhere\cite{Roza2015}. The unpredictable failures in the networks can disrupt normal operation, causing significant negative impacts on the communication functionality of the network.So it is an important issue to enhance the network reliability.\par
+
+To recover the transmission data on working path (1-2),a backup path need to be established by selecting the sound links between source node(1) and destination node(2) other than the links on the working path (1-2).In dedicated path protection approach(DPP)\cite{shen2014} Fig.\ref{figure:DPP single}, link(4-3) are crossed by both of the backup path(5-4-3-6) and the backup path(1-4-3-2),the reserved frequency slots on backup path(5-4-3-6) and on backup path(1-4-3-2) should not overlap with each other even their corresponding working path(1-2) and (5-6) are not joint with each other Fig.\ref{figure:DPP spectrum resources single} i.e. a single link failure in the network will not affect both working path(1-2) and (5-6).\par
+
+However in shared backup path protection(SBPP)\cite{shen2014}  Fig.\ref{figure:SBPP single}, if the working paths between different node pairs are not joint with each other,the reserved spectrum resources on the joint links of their corresponding backup paths can be shared. Fig.\ref{figure:SBPP spectrum resources single}.
+        \begin{figure}[!h]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=SBPP single.png, width=8cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of SBPP restoration approach(single link failure)}
+        \label{figure:SBPP single}
+        \end{figure}
+
+        \begin{figure}[!h]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=SBPP spectrum resources single.png, width=8cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of frequency slots assignment of SBPP restoration approach(single link failure)}
+        \label{figure:SBPP spectrum resources single}
+        \end{figure}
+
+\subsection{Two failures backup path protection technology in single-core EON}
+Sometimes because of unexpected reasons, dual failures (or even more failures) may happen.And the protection approaches for single failure may fail because the working path for a request and the corresponding backup path may lose function simultaneously.In \cite{Hong Guo2016} the authors attempt to solve the problem of routing protection and frequency slots assignment in single-core EON.They attempt to minimize the maximum occupied number of frequency slots on each link in order to save the spectrum resources.\par
+However their approach can not guarantee the total amount of occupied frequency slots in the whole network can also be minimum.And they only consider the condition in single-core EON.\par
+
+\subsection{This research}
+In this research, we aim to solve the problem of frequency slots assignment and backup paths selection in MCF networks.Unlike the previous researches\cite{Hong Guo2016}\cite{shen2014},we consider the backup paths selection and frequency slots assignment problem under the condition of two failure links in multi-core fibre networks instead of single-core EON.And we establish an ILP model to minimize the total amount of frequency slots utilized in the whole multi-core networks instead of just minimize the maximum occupied index of frequency slots on each link.
+ 
+
+\chapter{Proposed restoration approach}
+\section{Introduction of proposed restoration approach}
+As we consider the reliable routing and spectrum resources assignment problems in MCF EONs.We assume that the network models in the figures below all have four cores in each link.
+        \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=Four cores.png, width=6cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{Four cores in each link}
+        \label{figure:Four cores}
+        \end{figure}
+    
+    \subsection{Dedicated path protection approach(DPP) in MCF networks}
+        \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=DPP double.png, width=12cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of Dedicated path protection approach(DPP)}
+        \label{figure:DPP double}
+        \end{figure}
+    In Dedicated Path Protection(DPP), two backup paths are selected for each working path.And the frequency slots that are utilized on each working path and on each backup path can not overlap with each other if their common links occupy the same core.As in Fig.\ref{figure:DPP double}the second backup path (1-4-3-2) for the working path (1-2) is joint with the second backup path (5-4-3-6) on the same link (4-3),we assume that they also occupy the same core.The reserved frequency slots on backup path (1-4-3-2) and (5-4-3-6) are (4,5,6,7) and (8,9,10,11) respectively.
+    
+    
+    
+        
+\subsection{Shared Backup Path Protection-2nd Backup Path(SBPP-2B) approach in MCF networks}  
+    \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=SBPP pair-wise joint.png, width=12cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of spectrum resources can not be shared in SBPP-2B approach}
+        \label{figure:SBPP pair-wise joint}
+        \end{figure}
+
+    \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=SBPP pair-wise disjoint.png, width=12cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{An example of spectrum resources can be shared in SBPP-2B approach}
+        \label{figure:SBPP pair-wise disjoint}
+        \end{figure}
+    
+    In Shared Backup Path Protection-2nd Backup Path(SBPP-2B) ,we also establish two backup paths for each working path. The second backup paths which are joint (occupy the same core on the common link) between different node pairs are allowed to share the spectrum resources on their common links, if their corresponding working paths and first backup paths are pairwise disjoint i.e. their corresponding working paths and first backup paths are not likely to fail at the same time.\par
+    As in Fig.\ref{figure:SBPP pair-wise joint}the working path (1-2) is joint with the first backup path (5-1-2-6) on the same link (1-2), and the working path(5-6) is joint with the first backup path (1-5-6-2) on the same link (5-6).Whether they occupy the same core, their corresponding second backup paths (1-4-3-2) and (5-4-3-6) can not share spectrum resources if they occupy the same core on their same link (4-3).\par
+    As in Fig.\ref{figure:SBPP pair-wise disjoint} the working path(1-4-3-2) is joint with the working path(5-4-3-6) but their corresponding first backup paths (1-2) and (5-6) do not have common links.And their corresponding second backup paths (1-5-6-2) and (5-1-2-6) are joint on links (1-5) and (2-6).Assume these two second backup paths also occupy the same core,the spectrum resources can be shared on their common links.\par
+
+\section{Model description and Problem formulation}        
+        
+We establish an ILP model for the spectrum allocation and routing problem under the condition of two link-failures happening simultaneously in MCF-SDM networks. By extending the model proposed by  \cite{Hong Guo2016}.We aim to minimize both the maximum number of reserved frequency slots among each core and the total reserved frequency slots in the networks.\par
+
+\subsection{Definition of the parameters and variables}
+The  parameters and variables used here are defined as follows.
+\begin{itemize}
+    \item\textbf{Set:}
+        \item[$R$:]Set of requests in the MCF network
+        \item[$B^{}_r$:]Set of the first backup paths for request $r$
+        \item[$B^{a}_r$:]Set of the second backup paths for request $r$ under the condition that path a is chosen as the first backup path for request $r$
+        \item[$C$:]Set of cores in the MCF network
+        \item[$L$:]Set of links in the MCF network
+\end{itemize}
+    
+\begin{itemize}
+    \item \textbf{Parameters:}
+        \item[$W^{}_r$:]The number of required frequency slots to support request $r$.
+        \item[$w^{r_1}_{r_2}$:]Equals 1 when the working paths of request $r_1$ and $r_2$ occupy the same core of the same link; 0,otherwise.
+        \item[$o^{r_1,a_1}_{r_2}$:]Equals 1 when the working path of request $r_2$ and the first backup path $a_1$ of request $r_1$ occupy the same core of the same link; 0,otherwise.
+        \item[$k^{r_1,b_1}_{r_2}$:]Equals 1 when the working path of request $r_2$ and the second backup path $b_1$ of request $r_1$ occupy the same core of the same link; 0,otherwise.
+         \item[$f^{r_1,a_1}_{r_2,a_2}$:]Equals 1 when the first backup path $a_1$ of request $r_1$ and the first backup path $a_2$ of request $r_2$ occupy the same core of the same link; 0,otherwise.
+         \item[$i^{r_1,b^{}_1}_{r_2,a^{}_2}$:]Equals 1 when the first backup path $a_2$ of request $r_2$ and the second backup path $b_1$ of request $r_1$ occupy the same core of the same link; 0,otherwise.
+         \item[$s^{r_1,b^{}_1}_{r_2,b^{}_2}$:]Equals 1 when the second backup path $b^{}_2$ of request $r_2$ and the second backup path $b^{}_1$ of request $r_1$ occupy the same core of the same link and their corresponding working and first backup paths are also $pairwise joint$;0,otherwise.
+         \item[$\eta^{l_1,l_2}_p$:]Equals 1 when path $p$ (including working paths,first backup paths,second backup paths) is affected by the failures of link $l_1$ and $l_2$.
+         \item[$Y^{l,c}_{r,a}$:]Equals 1 when the first backup path $a$ of request $r$ occupies core $c$ of link $l$.
+         \item[$Y^{l,c}_{r,b}$:]Equals 1 when the second backup path $b$ of request $r$ occupies core $c$ of link $l$.
+         \item[$\omega$:]A large positive value.
+         \item[$\delta$:]A small weight factor (we set it to 0.001).
+\end{itemize}
+
+\begin{itemize}
+    \item \textbf{Variables:}
+        \item[$Q^{a}_r$:]Equals 1 when path $a$ is selected as the first backup path for request $r$; 0, otherwise.
+         \item[$Q^{b}_r$:]Equals 1 when path $b$ is selected as the second backup path for request $r$; 0, otherwise.
+        \item[$q^{}_{r}$:]The starting number of the frequency slots utilized by the working path of request $r$.
+         \item[$q^{a}_{r}$:]The starting number of the frequency slots reserved for the first backup path $a$ of request $r$.
+         \item[$q^{b}_{r}$:]The starting number of the frequency slots reserved for the second backup path $b$ of request $r$.
+          \item[$x^{r_1}_{r_2}$:]Equals 1 if $q^{}_{r_2}$ is greater than $q^{}_{r_1}$; 0,otherwise.
+           \item[$x^{r_1,a_1}_{r_2}$:]Equals 1 if $q^{}_{r_2}$ is greater than $q^{a_1}_{r_1}$; 0,otherwise.
+           
+           \item[$x^{r_1,b_1}_{r_2}$:]Equals 1 if $q^{}_{r_2}$ is greater than $q^{b_1}_{r_1}$; 0,otherwise.
+           
+           \item[$z^{r_1,a^{}_1}_{r_2,a^{}_2}$:]Equals 1 if $q^{a_2}_{r_2}$ is greater than $q^{a_1}_{r_1}$; 0,otherwise.
+           
+           \item[$z^{r_1,b^{}_1}_{r_2,a^{}_2}$:]Equals 1 if $q^{a_2}_{r_2}$ is greater than $q^{b_1}_{r_1}$; 0,otherwise.
+           
+           \item[$u^{r_1,b^{}_1}_{r_2,b^{}_2}$:]Equals 1 if $q^{b_2}_{r_2}$ is greater than $q^{b_1}_{r_1}$; 0,otherwise.
+           
+           \item[$S^{c,l}$:]The total quantity of reserved frequency slots for backup path on core $c$ of link $l$.
+           
+           \item[$C^{}_{max}$:]The maximum quantity of frequency slots utilized among each core in MCF networks. 
+\end{itemize}
+
+\begin{itemize}
+    \item \textbf{Objective:}
+    \begin{center}
+        {\mbox{\it Minimize}} $\sum\limits_{c\in C,l\in L} S^{c,l}+\delta \cdot C^{}_{max}$
+    \end{center} 
+\end{itemize}
+
+  Our objective is to select the proper backup route pairs for each request in order to minimize the total number of reserved frequency slots on backup paths ($\sum\limits_{c\in C,l\in L} S^{c,l}$) and the maximum amount of frequency slots occupied among each core ($C^{}_{max}$) in MCF networks. Note that the objective of \cite{Hong Guo2016} is only to minimize the maximum number of frequency slots among each core.Reserved spectrum resources means the frequency slots that should be kept from utilizing by working paths and only be used to restore the failure links.To minimize the total reserved frequency slots in the networks results in maximum sharing of frequency slots on backup paths.To minimize the maximum number of frequency slots among each core, can make the occupied frequency slots closely arrange from index 1 in order to prevent spectrum fragmentation.\par
+  For example, in the sample link Fig.\ref{figure:FSs assignment(fibre)} the maximum number of occupied FSs from Core 1 to Core 4 is equal to 15, 11, 13, 10 respectively so the maximum number of occupied FSs in this sample link is 15.And the total reserved spectrum resources in the sample link Fig.\ref{figure:FSs assignment(fibre)} is the FSs reserved for all the backup paths crossing it.\par
+
+  \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=FSs assignment(fibre).png, width=15cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{Spectrum assignment on the sample link}
+        \label{figure:FSs assignment(fibre)}
+        \end{figure}
+      
+\begin{itemize}
+    \item \textbf{Constraints:}
+    \begin{equation}
+    %\begin{split}
+        \sum\limits_{a\in B^{}_r} Q^{a}_r = \sum\limits_{a\in B^{}_r} \sum\limits_{b\in B^{a}_r} Q^{b}_r = 1 \quad
+        \forall{r\in R}
+        \label{ilp-st}
+    %\end{split}
+    \end{equation}
+    According to Constraints(3.1),there should be only one pair of backup paths being selected by each request.\par
+    %一对node pair之间只选用一条第一备用路径，和一条第二备用路径
+
+    \begin{equation}
+         C^{}_{max} \ge q^{}_{r}+W^{}_r;
+         C^{}_{max}\ge (q^{a}_{r}+W^{}_r) \cdot Q^{a}_r;
+         C^{}_{max}\ge (q^{b}_{r}+W^{}_r) \cdot Q^{b}_r \quad\forall{r\in R,a\in B^{}_r,b\in B^{a}_r} \label{ilp-st}
+    \end{equation}
+     According to constraint(3.2), the maximum index of FSs occupied in the whole network should not be smaller than the number of  occupied FSs in each working path, first backup path and second backup path.
+     
+
+     \begin{equation}
+        q^{}_{r_2}+W^{}_{r_2}-q^{}_{r_1} \leq \omega\cdot(x^{r_1}_{r_2}+1-w^{r_1}_{r_2}) \quad\forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{equation}
+
+    According to constraints(3.3),If the working path of one request joint with (on same core of the same link) the working path of another request,their occupied frequency slots should not overlap.
+    
+    \begin{equation}
+        q^{a_1}_{r_1}+W^{}_{r_1}-q^{}_{r_2} \leq \omega\cdot(1-x^{r_1,a_1}_{r_2}+2-Q^{a_1}_{r_1}-o^{r_1,a_1}_{r_2})
+        \quad\forall{a_1\in B^{}_{r_1}},\forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{equation}
+
+    \begin{equation}
+        q^{}_{r_2}+W^{}_{r_2}-q^{a_1}_{r_1} \leq \omega\cdot(x^{r_1,a_1}_{r_2}+2-Q^{a_1}_{r_1}-o^{r_1,a_1}_{r_2})
+        \quad\forall{a_1\in B^{}_{r_1}},\forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{equation}
+
+    According to constraints(3.4)-(3.5),If the working path of one request joint with (on same core of the same fibre) the first backup path of another request,their occupied frequency slots should not overlap.
+    
+    \begin{equation}
+    \begin{split}
+        &q^{}_{r_2}+W^{}_{r_2}-q^{b_1}_{r_1} \leq\omega\cdot(x^{r_1,b_1}_{r_2}+2-Q^{b_1}_{r_1}-k^{r_1,b_1}_{r_2})
+        \quad\\
+        &\forall{a_1\in B^{}_{r_1}},\forall{b_1\in B^{a_1}_{r_1}},\forall{r_1,r_2\in R,r_1\neq r_2} 
+        \label{ilp-st}
+    \end{split}
+    \end{equation}
+
+    \begin{equation}
+    \begin{split}
+        &q^{b_1}_{r_1}+W^{}_{r_1}-q^{}_{r_2} \leq\omega\cdot(1-x^{r_1,b_1}_{r_2}+2-Q^{b_1}_{r_1}-k^{r_1,b_1}_{r_2}) 
+        \quad\\
+        &\forall{a_1\in B^{}_{r_1}},\forall{b_1\in B^{a_1}_{r_1}},\forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{split}
+    \end{equation}
+    According to constraints(3.6)-(3.7),If the working path of one request joint with(on same core of the same fibre) the second backup path of another request,their occupied frequency slots shouldn’t overlap.
+    
+    \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=Constraints 3.3-3.7.png, width=15cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{Constraints (3.3)-(3.7)}
+        \label{figure:Constraints (3.3)-(3.7)}
+        \end{figure}
+    
+    \begin{equation}
+    \begin{split}
+        &q^{a_2}_{r_2}+W^{r_2}_d-q^{a_1}_{r_1} \leq\omega\cdot(z^{r_1,a^{}_1}_{r_2,a^{}_2}+3-Q^{a_1}_{r_1}-Q^{a_2}_{r_2}-f^{r_1,a_1}_{r_2,a_2}) \quad\\
+        &\forall{a^{}_1\in B^{}_{r_1}},\forall{a^{}_2\in B^{}_{r_2}},\forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{split}
+    \end{equation}
+
+    According to constraints(3.8),If the first backup path of one request joint with the first backup path of another request,their occupied frequency slots shouldn’t overlap.
+
+     \begin{equation}
+     \begin{split}
+        &q^{a_2}_{r_2}+W^{}_{r_2}-q^{b_1}_{r_1} \leq\omega\cdot(z^{r_1,b^{}_1}_{r_2,a^{}_2}+3-Q^{b_1}_{r_1}-Q^{a_2}_{r_2}-i^{r_1,b^{}_1}_{r_2,a^{}_2}) 
+        \quad\\
+        &\forall{a^{}_1\in B^{}_{r_1}},\forall{a^{}_2\in B^{}_{r_2}}, \forall{b^{}_1 \in B^{a^{}_1}_{r_1}}, \forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{split}
+    \end{equation}
+
+    \begin{equation}
+    \begin{split}
+        &q^{b_1}_{r_1}+W^{}_{r_1}-q^{a_2}_{r_2} \leq\omega\cdot(1-z^{r_1,b^{}_1}_{r_2,a^{}_2}+3-Q^{b_1}_{r_1}-Q^{a_2}_{r_2}-i^{r_1,b^{}_1}_{r_2,a^{}_2}) \quad\\
+        &\forall{a^{}_1\in B^{}_{r_1}},\forall{a^{}_2\in B^{}_{r_2}},\forall{b^{}_1 \in B^{a^{}_1}_{r_1}},\forall{r_1,r_2\in R,r_1\neq r_2} \label{ilp-st}
+    \end{split}
+    \end{equation}
+    According to constraints(3.9)-(3.10),If the first backup path of one request joint with the second backup path of another request,their occupied frequency slots shouldn’t overlap.
+
+    \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=Constraints 3.8-3.10.png, width=15cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{Constraints (3.8)-(3.10)}
+        \label{figure:Constraints (3.8)-(3.10)}
+        \end{figure}
+        
+    \begin{equation}
+    \begin{split}
+        &q^{b_2}_{r_2}+W^{}_{r_2}-q^{b_1}_{r_1} \leq\omega\cdot(u^{r_1,b^{}_1}_{r_2,b^{}_2}+3-Q^{b_1}_{r_1}-Q^{b_2}_{r_2}-s^{r_1,b^{}_1}_{r_2,b^{}_2})\quad\\ 
+        &\forall{a^{}_1\in B^{}_{r_1}},\forall{a^{}_2\in B^{}_{r_2}},\forall{b^{}_1 \in B^{a^{}_1}_{r_1}},\forall{b^{}_2 \in B^{a^{}_2}_{r_2}},\forall{r_1,r_2\in R,r_1\neq r_2}
+        \label{ilp-st}
+    \end{split}
+    \end{equation}
+    
+     According to constraints(3.11),if the second backup path of one request joint with the second backup path of another request,their occupied frequency slots can be shared if their corresponding working and first backup paths pairwise disjoint.Constraints(3.1)-(3.11) are similar to the model of \cite{Hong Guo2016}.As we consider the problem under the condition of MCF networks the frequency slots assignment rules are slightly different from \cite{Hong Guo2016}.The following constraint is newly introduced in this thesis used for reserving frequency slots for backup paths on each core of each link.
+    \begin{gather}
+    \begin{split}
+        &\sum\limits_{r \in R,a \in B^{}_r,b \in B^{a}_r} [Q^{a}_r\cdot Y^{c,l}_{r,a}\cdot W^{}_r+ \eta^{l_1,l_2}_r \cdot \eta^{l_1,l_2}_a \cdot (1-\eta^{l_1,l_2}_b) \cdot Q^{a}_r \cdot Q^{b}_r \cdot Y^{c,l}_{r,b} \cdot W^{}_r] \leq S^{c,l}\\
+        &\forall{l_1,l_2,l \in L,l_1\neq l_2\neq l},\forall{c \in C} \label{ilp-st}
+    \end{split}
+    \end{gather}
+    According to constraint(3.12),when any two links $l_1$ and $l_2$ are broken simultaneously there should be enough reserved spare capacity in each core for the backup paths crossing it and frequency slots can be shared on the second backup paths if their corresponding working and first backup paths do not be pairwise joint.
+
+\end{itemize}
+
+
+\chapter{Numerical experiments and performance analyses}
+In this chapter, we evaluate the performance of the DPP and SBPP-2B approaches in network models shown in Fig.\ref{figure:N6S9} and Fig.\ref{figure:N5S8}.
+\section{Network model and request generate}
+\subsection{Network model}
+        \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=N6S9.png, width=8cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{A network model with 6 nodes and 9 links (N6S9)}
+        \label{figure:N6S9}
+        \end{figure} 
+
+        \begin{figure}[htbp]
+        \begin{center}
+        %\includegraphics[width=3cm]{sample.eps}
+        \psfig{file=N5S8.png, width=8cm}
+        %\epsfile{file=sample.eps,scale=0.6}
+        \end{center}
+        \caption{A network model with 5 nodes and 8 links (N5S8)}
+        \label{figure:N5S8}
+        \end{figure} 
+
+     Fig.\ref{figure:N6S9} is a simple network (n6s9) model which has 6 nodes and 9 links.Fig.\ref{figure:N5S8} is a simple network (n5s8) model which has 5 nodes and 8 links.As we consider the frequency slots assignment problem under the condition of MCF-SDM networks,each link contains 4 cores.The distance between any two nodes is labeled on the link connecting the two nodes.\par 
+        
+\subsection{Request generate}
+    We generate the requests as lists with 4 elements.\textbf{[starting node,destination node,\\
+    the core occupied,the number of frequency slots needed]}
+    The starting node and destination node of each request are chosen randomly from the n6s9 and n5s8 networks.The core occupied by each request is chosen randomly.The number of frequency slots needed by a request is randomly chosen between 2 and 14.In the experiment, we set the quantity of requests in the network to 10, 20, 30, 40, and 50 respectively. We conduct the experiments under the condition of the same number of requests for 5 times, and regenerate the requests for each time.
+
+    
+\subsection{Paths selection for each request}
+    We find the shortest path between the node pair(starting node and destination node) of each request as the working path and the other paths between each node pair become candidate backup paths.From these candidate backup paths, we use Gurobi solver\cite{gurobi} to find the optimal solution of ILP model which is proposed in Chapter 3 in order to find the proper backup paths for each request.\par
+     
+    
+\section{Experiments in N6S9 network model}
+    When two failures happen simultaneously in the network, if it cannot be guaranteed that each working path has disjoint backup paths, both the working path and the backup paths may fail simultaneously. And the requests on such working paths become unrecoverable. However, in small networks such as N6S9, it is not guaranteed that three disjoint paths (working path, backup path 1, backup path 2) can be found between each pair of nodes (e.g., between node 1 and node 2, paths other than the shortest path (1-2) all cross the link (2-3)). Therefore, we conducted experiments with settings of \textbf {No guarantee of two backup paths between each pair of nodes} and \textbf {Guarantee of two backup paths between any pair of nodes}.
+    
+    \subsection{No guarantee of two backup paths between each pair of nodes}
+    As we have discussed before, there are not always 3 disjoint paths(working path, backup path 1, backup path 2) that can be found between each node pair.In this experiment, we set only one backup path for the node pairs without 3 disjoint paths,and two backup paths for the other node pairs.When generating requests, we calculate the percentage of requests for which two disjoint backup paths cannot be found.
+
+    \begin{table}[!h]
+    \caption{The percentage of requests without two disjoint backup paths}
+    \label{Percentage_without_two}
+    \begin{center}
+    \begin{tabular}{cccc}
+    \toprule
+    \tabincell{c}{The number of requests} & \tabincell{c}{Percentage}  \\
+    \midrule
+    10 & 52\%\\
+    20 & 52\%\\
+    30 & 55\%\\
+    40 & 60\%\\
+    50 & 57\%\\
+    \bottomrule 
+    \end{tabular}
+    \end{center}
+    \end{table}
+
+
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=N6_without_FS.png, width=10cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{Reserved frequency slots(FSs) in the N6S9 network(4.2.1)}
+    \label{figure:N6_without_FS}
+    \end{figure}
+    
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=N6_without_Cmax.png, width=10cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{The maximal number of FSs occupied in the N6S9 network(4.2.1)}
+    \label{figure:N6_without_Cmax}
+    \end{figure}
+    After the computation, we can get the total number of reserved frequency slots on backup paths Fig.\ref{figure:N6_without_FS} and the maximum number of frequency slots occupied(both used and reserved) among each core in the whole network Fig.\ref{figure:N6_without_Cmax}. 
+      
+    
+
+\subsection{Guarantee of two backup paths between any pair of nodes}
+    
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=N6_with_FS.png, width=10cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{Reserved frequency slots(FSs) in the N6S9 network(4.2.2)}
+    \label{figure:N6_with_FS}
+    \end{figure}
+   
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=N6_with_Cmax.png, width=10cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{The maximal number of FSs occupied in the N6S9 network(4.2.2)}
+    \label{figure:N6_with_Cmax}
+    \end{figure}
+    In the N6S9 network, not all node pairs can have three disjoint paths (working path, backup path 1, backup path 2).In this experiment, we assigned two disjoint backup paths to node pairs that three disjoint paths can be found, while assigning two joint backup paths to other node pairs.Through the computation of ILP models, we can get the results as the following figures.
+
+\section{Experiments in N5S8 network model}
+    Unlike the N6S9 network, in the N5S8 network, for any pair of node pairs, it is always possible to find three disjoint paths (working path, backup path 1, backup path 2). In other words, for any working path, two backup paths can always be found to maintain requests on the working path. When two failures happen simultaneously in the network, all requests can be recovered.Through the computation of proposed ILP model,we can get the total number of reserved frequency slots on backup paths Fig.\ref{figure:N5_FS} and the maximum number of frequency slots occupied(both used and reserved) among each core in the whole network Fig.\ref{figure:N5_Cmax}.
+    
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=N5_FS.png, width=10cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{Reserved frequency slots(FSs) in the N5S8 network(4.3)}
+    \label{figure:N5_FS}
+    \end{figure}
+   
+    \begin{figure}[htbp]
+    \begin{center}
+    %\includegraphics[width=3cm]{sample.eps}
+    \psfig{file=N5_Cmax.png, width=10cm}
+    %\epsfile{file=sample.eps,scale=0.6}
+    \end{center}
+    \caption{The maximal number of FSs occupied in the N5S8 network(4.3)}
+    \label{figure:N5_Cmax}
+    \end{figure}
+
+\section{Conclusion of experiments}
+    Through the experiments, we can find that the total number of reserved frequency slots(FSs) on the backup paths in the whole network exhibit an upward trend as the number of requests in the network increasing.Because of sharing of the frequency slots on the second backup paths in SBPP-2B approach, the total number of reserved frequency slots(FSs) in SBPP-2B is less than DPP both in the N6S9 network and in the N5S8 network.Regardless of the networks, as the number of requests increases, the difference of reserved frequency slots(FSs) between SBPP-2B and DPP becomes larger. This indicates that more requests are sharing reserved frequency slots on the second backup paths.Maximum number of frequency slots occupied among each core(Cmax) in SBPP-2B and DPP are similar when the number of requests is small(not greater than 20).With the increase of requests (>20), relationship of Cmax between SBPP-2B and DPP is different in different networks.\par
+
+\section{Experiments environment}
+    \begin{table}[!h]
+    \caption{Experiments environment}
+    \label{Experiments environment}
+    \begin{center}
+    \begin{tabular}{cccc}
+    \toprule
+    Optimization problem solver & Gurobi(Version 8.0.0)\\
+    Operating system & Windows 10 Professional Edition(64 bits,x86 processor)\\
+    CPU & AMD Ryzen 7 2700X Eight-Core Processor 4.00GHz\\
+    RAM & 64.0GB\\
+    \bottomrule 
+    \end{tabular}
+    \end{center}
+    \end{table}
+
+
+
+    
+
+\chapter{Conclusion}
+    In this article, we extend two backup path establishment approaches (SBPP, DPP) for preventing single failure in traditional single-core EON in order to propose our approach (SBPP-2B) aimed to restoring the requests under the condition of two simultaneous failures in MCF-SDM optical networks. We formulate an Integer Linear Programming (ILP) model and utilize Gurobi to solve the ILP problems.Through multiple experiments, we find that, whether in the N6S9 network or the N5S8 network, with an increase in the number of requests and under the condition of the same distribution of requests in the network,SBPP-2B  significantly reduces the number of reserved frequency slots in the networks. We also observe that maximum number of frequency slots occupied among each core (Cmax) in SBPP-2B and DPP are similar when the number of requests is small(not greater than 20).With the increase of requests (greater than 20), relationship of Cmax between SBPP-2B and DPP is different in different networks.Due to the complexity of the proposed ILP model, we are unable to obtain experimental results in medium to large-sized networks.This suggests that corresponding heuristic algorithms need to be considered to address such problems.
+    
+\chapter{Acknowledgements}
+    I would like to appreciate my advisor Prof. Yongbing Zhang.He gave me plenty of supports during my research period not only limited to academic instruction but also mental health assistance.I would also appreciate my classmates in the lab.They always help me when I face difficulties during the daily life.Actually I'm not the person who can always manage the schedule smoothly and fix problems on time.Without assistance from them I couldn't accomplish this experiment.Finally, I would like to appreciate my parents without their financial aid and mental support I couldn't even have the chance to start this research.
+
+
+
+
+%% Bibliography
+\addcontentsline{toc}{chapter}{\numberline{}Bibliography}
+\renewcommand{\bibname}{Bibliography}
+% use bibtex
+%\bibliographystyle{unsrt}
+%\bibliography{samplebib}
+%% [compile] bibtex sample-en; platex sample-en; platex sample-en;
+
+% describe bib entries in the file
+\begin{thebibliography}{1}
+
+
+\bibitem{richardson2013}
+D. Richardson, J. Fini, and L. E. Nelson.
+\newblock Space-division multiplexing in optical fibres.
+\newblock {\em Nature Photonics}, Vol. 7, No.5, p. 354, 2013.
+
+\bibitem{pj2018}
+P. J. Winzer, D. T. Neilson, and A. R. Chraplyvy.
+\newblock Fiber-optic transmission and networking: The previous 20 and the next 20 years.
+\newblock {\em Optics Express}, Vol. 26, no. 18, pp. 24190-24239, 2018.
+
+\bibitem{Roza2015}
+R.Goscien, K. Walkowiak.
+\newblock Protection in elastic optical networks.
+\newblock {\em IEEE Network}, 2015.
+
+\bibitem{Hong Guo2016}
+Hong Guo, Gangxiang Shen,and Bose.
+\newblock Routing and spectrum assignment for dual failure path protected elastic optical networks.
+\newblock {\em IEEE Access}, 2016.
+
+
+\bibitem{wd2003}
+W. D. Grover.
+\newblock Mesh-Based Survivable Networks.
+\newblock {\em Upper Saddle River, NJ: Prentice Hall PTR}, ch.5, 2003.
+
+\bibitem{an2011}
+A. N. Patel, P. N. Ji, J. P. Jue and Ting Wang.
+\newblock Survivable transparent Flexible optical WDM (FWDM) networks.
+\newblock {\em 2011 Optical Fiber Communication Conference and Exposition and the National Fiber Optic Engineers Conference}, pp. 1-3, 2011.
+
+\bibitem{shen2014}
+G. Shen, Y. Wei and S. K. Bose.
+\newblock Optimal design for shared backup path protected elastic optical networks under single-link failure.
+\newblock {\em Journal of Optical Communications and Networking}, vol. 6, no. 7, pp. 649-659, July 2014.
+
+
+
+\bibitem{gurobi}
+Gurobi [Online]. Available: http://www.gurobi.com.
+\newblock 
+\newblock {\em }
+
+
+
+\bibitem{bl2015}
+B. Li, L. Gan, S. Fu, Z. Xu, M. Tang, W. Tong, and P. P. Shum.
+\newblock The role of effective area in the design of weakly coupled MCF: Optimization guidance and OSNR improvement.
+\newblock {\em IEEE Journal of Selected Topics in Quantum Electronics}, vol. 22, no. 2, pp. 81–87, 2015.
+
+\bibitem{th2011}
+T. Hayashi, T. Taru, O. Shimakawa, T. Sasaki, and E. Sasaoka.
+\newblock Characterization of crosstalk in ultra-low-crosstalk multi-core fiber.
+\newblock {\em Journal of Lightwave Technology}, vol. 30, no. 4, pp. 583-589, 2011.
+
+\bibitem{js2012}
+J. Sakaguchi, B. J. Puttnam, W. Klaus, Y. Awaji, N. Wada, A. Kanno, T. Kawanishi, K. Imamura, H. Inaba, K. Mukasa, et al.
+\newblock 305 Tb/s space division multiplexed transmission using homogeneous 19-core fiber.
+\newblock {\em Journal of Lightwave Technology}, vol. 31, no. 4, pp. 554–562, 2012.
+
+
+\end{thebibliography}
+
+
+\end{document}
+
